@@ -2,6 +2,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Maximize2,
+  Minimize2,
   RotateCcw,
   Save,
 } from "lucide-react";
@@ -22,6 +24,7 @@ export function App() {
   const [markdown, setMarkdown] = useState(initialDraft.markdown);
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
   const [savedAt, setSavedAt] = useState(initialDraft.updatedAt);
+  const [isPresenting, setIsPresenting] = useState(false);
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
@@ -41,6 +44,33 @@ export function App() {
     }
   }, [deck, selectedSlideIndex]);
 
+  useEffect(() => {
+    if (!isPresenting || !deck) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setIsPresenting(false);
+        return;
+      }
+
+      if (event.key === "ArrowRight" || event.key === " ") {
+        event.preventDefault();
+        moveSlide(1);
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        moveSlide(-1);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deck, isPresenting]);
+
   function moveSlide(delta: number): void {
     if (!deck) {
       return;
@@ -55,6 +85,57 @@ export function App() {
     clearDeckDraft();
     setMarkdown(sampleDeckMarkdown);
     setSelectedSlideIndex(0);
+  }
+
+  if (isPresenting && deck && activeSlide) {
+    return (
+      <main className="presenter-shell" aria-label="Presentation mode">
+        <div className="presenter-stage">
+          <SlideRenderer
+            aspectRatio={deck.metadata.aspectRatio}
+            slide={activeSlide}
+            theme={deck.metadata.theme}
+          />
+        </div>
+        <footer className="presenter-bar">
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Previous slide"
+            title="Previous slide"
+            disabled={selectedSlideIndex === 0}
+            onClick={() => moveSlide(-1)}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div className="presenter-meta">
+            <strong>{activeSlide.title}</strong>
+            <span>
+              {selectedSlideIndex + 1} / {deck.slides.length}
+            </span>
+          </div>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Next slide"
+            title="Next slide"
+            disabled={selectedSlideIndex === deck.slides.length - 1}
+            onClick={() => moveSlide(1)}
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Exit presentation"
+            title="Exit presentation"
+            onClick={() => setIsPresenting(false)}
+          >
+            <Minimize2 size={18} />
+          </button>
+        </footer>
+      </main>
+    );
   }
 
   return (
@@ -88,6 +169,16 @@ export function App() {
             }
           >
             <Download size={18} />
+          </button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Start presentation"
+            title="Start presentation"
+            disabled={!deck}
+            onClick={() => setIsPresenting(true)}
+          >
+            <Maximize2 size={18} />
           </button>
         </div>
       </header>
