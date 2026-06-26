@@ -143,6 +143,33 @@ The **imperative shell** lives around it:
 The core parser has no React, DOM, storage, or network concerns. The UI consumes
 the parsed `Deck` model and handles browser behavior separately.
 
+## Codex Skill
+
+This repo includes a packaged Codex skill for generating decks in this app's
+markdown format:
+
+```txt
+skills/create-markdown-slides/
+```
+
+The skill is also installed locally at:
+
+```txt
+~/.codex/skills/create-markdown-slides/
+```
+
+Use it in a chat with:
+
+```txt
+Use $create-markdown-slides to turn this brief into a polished markdown slide deck.
+```
+
+The skill contains:
+
+- `SKILL.md`: the deck-generation workflow and quality rules.
+- `references/markdown-slides-format.md`: the supported markdown/frontmatter/directive format.
+- `scripts/validate_deck.py`: a lightweight validator for generated `.md` decks.
+
 ## Testing Strategy
 
 The prototype uses two layers of tests:

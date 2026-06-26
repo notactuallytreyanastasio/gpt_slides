@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Markdown Slides"
+  short_description: "Generate decks for the markdown slide studio"
+  default_prompt: "Use $create-markdown-slides to turn this brief into a polished markdown slide deck."
