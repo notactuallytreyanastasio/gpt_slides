@@ -8,7 +8,8 @@ import {
   RotateCcw,
   Save,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import type { DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { parseMarkdownDeck } from "../core";
 import { downloadMarkdown } from "../shell/downloadMarkdown";
@@ -18,17 +19,23 @@ import {
   saveDeckDraft,
 } from "../shell/localDeckStorage";
 import { hasSeenWalkthrough } from "../shell/walkthroughStorage";
+import {
+  imageFilesToMarkdownEmbeds,
+  insertMarkdownAtSelection,
+} from "../shell/imageMarkdown";
 import { GuidedTour } from "./GuidedTour";
 import { sampleDeckMarkdown } from "./sampleDeck";
 import { SlideRenderer } from "./SlideRenderer";
 
 export function App() {
+  const sourceRef = useRef<HTMLTextAreaElement>(null);
   const initialDraft = useMemo(() => loadDeckDraft(sampleDeckMarkdown), []);
   const [markdown, setMarkdown] = useState(initialDraft.markdown);
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
   const [savedAt, setSavedAt] = useState(initialDraft.updatedAt);
   const [isPresenting, setIsPresenting] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(() => !hasSeenWalkthrough());
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
@@ -47,6 +54,16 @@ export function App() {
       setSelectedSlideIndex(deck.slides.length - 1);
     }
   }, [deck, selectedSlideIndex]);
+
+  useEffect(() => {
+    if (isPresenting) {
+      return;
+    }
+
+    document
+      .querySelector(`[data-flow-slide="${selectedSlideIndex}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [isPresenting, selectedSlideIndex]);
 
   useEffect(() => {
     if (!isPresenting || !deck) {
@@ -89,6 +106,57 @@ export function App() {
     clearDeckDraft();
     setMarkdown(sampleDeckMarkdown);
     setSelectedSlideIndex(0);
+  }
+
+  async function insertDroppedImages(files: readonly File[]): Promise<void> {
+    const embeds = await imageFilesToMarkdownEmbeds(files);
+
+    if (embeds.length === 0) {
+      return;
+    }
+
+    const textarea = sourceRef.current;
+    const selectionStart = textarea?.selectionStart ?? markdown.length;
+    const selectionEnd = textarea?.selectionEnd ?? selectionStart;
+    const insertion = embeds.map((embed) => embed.markdown).join("\n\n");
+    const leadingBreakLength =
+      selectionStart > 0 && !markdown.slice(0, selectionStart).endsWith("\n")
+        ? 2
+        : 0;
+    const nextMarkdown = insertMarkdownAtSelection(
+      markdown,
+      insertion,
+      selectionStart,
+      selectionEnd,
+    );
+    const nextCursorPosition =
+      selectionStart + leadingBreakLength + insertion.length;
+
+    setMarkdown(nextMarkdown);
+    window.requestAnimationFrame(() => {
+      sourceRef.current?.focus();
+      sourceRef.current?.setSelectionRange(nextCursorPosition, nextCursorPosition);
+    });
+  }
+
+  function handleSourceDragOver(event: DragEvent<HTMLTextAreaElement>): void {
+    if (hasImageFiles(event.dataTransfer)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setIsDraggingImage(true);
+    }
+  }
+
+  async function handleSourceDrop(
+    event: DragEvent<HTMLTextAreaElement>,
+  ): Promise<void> {
+    if (!hasImageFiles(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    setIsDraggingImage(false);
+    await insertDroppedImages(Array.from(event.dataTransfer.files));
   }
 
   if (isPresenting && deck && activeSlide) {
@@ -202,7 +270,9 @@ export function App() {
 
       <section className="workspace" aria-label="Deck workspace">
         <section
-          className="source-panel"
+          className={
+            isDraggingImage ? "source-panel dragging-image" : "source-panel"
+          }
           aria-labelledby="source-title"
           data-tour="source"
         >
@@ -213,9 +283,13 @@ export function App() {
           <textarea
             aria-label="Markdown source"
             data-testid="markdown-source"
+            ref={sourceRef}
             spellCheck={false}
             value={markdown}
             onChange={(event) => setMarkdown(event.target.value)}
+            onDragLeave={() => setIsDraggingImage(false)}
+            onDragOver={handleSourceDragOver}
+            onDrop={handleSourceDrop}
           />
         </section>
 
@@ -233,16 +307,40 @@ export function App() {
 
           {deck && activeSlide ? (
             <>
-              <div
-                className="canvas-stage"
-                data-testid="canvas-stage"
-                data-tour="canvas"
-              >
-                <SlideRenderer
-                  aspectRatio={deck.metadata.aspectRatio}
-                  slide={activeSlide}
-                  theme={deck.metadata.theme}
-                />
+              <div className="canvas-stage" data-testid="canvas-stage">
+                <div className="deck-flow" data-tour="canvas">
+                  {deck.slides.map((slide) => (
+                    <article
+                      className={
+                        slide.index === selectedSlideIndex
+                          ? "flow-slide active"
+                          : "flow-slide"
+                      }
+                      data-flow-slide={slide.index}
+                      key={slide.id}
+                      onClick={() => setSelectedSlideIndex(slide.index)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedSlideIndex(slide.index);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Select ${slide.title}`}
+                    >
+                      <div className="flow-slide-heading">
+                        <span>Slide {slide.index + 1}</span>
+                        <strong>{slide.title}</strong>
+                      </div>
+                      <SlideRenderer
+                        aspectRatio={deck.metadata.aspectRatio}
+                        slide={slide}
+                        theme={deck.metadata.theme}
+                      />
+                    </article>
+                  ))}
+                </div>
               </div>
               <div className="transport" aria-label="Slide navigation">
                 <button
@@ -354,6 +452,12 @@ export function App() {
       </section>
       {isTourOpen ? <GuidedTour onClose={() => setIsTourOpen(false)} /> : null}
     </main>
+  );
+}
+
+function hasImageFiles(dataTransfer: DataTransfer): boolean {
+  return Array.from(dataTransfer.items).some(
+    (item) => item.kind === "file" && item.type.startsWith("image/"),
   );
 }
 

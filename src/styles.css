@@ -232,6 +232,14 @@ textarea {
   line-height: 1.58;
 }
 
+.source-panel.dragging-image textarea {
+  outline: 3px solid #ffb703;
+  outline-offset: -3px;
+  background:
+    linear-gradient(rgba(255, 183, 3, 0.12), rgba(255, 183, 3, 0.12)),
+    #101820;
+}
+
 .canvas-panel {
   background: #dfe8ee;
 }
@@ -239,17 +247,66 @@ textarea {
 .canvas-stage {
   flex: 1;
   min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 22px;
+}
+
+.deck-flow {
   display: grid;
-  place-items: center;
-  padding: clamp(18px, 4vw, 48px);
+  align-content: start;
+  gap: 18px;
+  width: min(100%, 980px);
+  margin: 0 auto;
+}
+
+.flow-slide {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.flow-slide:hover {
+  border-color: rgba(20, 125, 143, 0.32);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.flow-slide.active {
+  border-color: #147d8f;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(20, 125, 143, 0.14);
+}
+
+.flow-slide-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #51606d;
+  font-size: 0.78rem;
+}
+
+.flow-slide-heading strong {
+  overflow: hidden;
+  color: #16202a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-slide-heading span {
+  flex: 0 0 auto;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .slide-frame {
   width: min(100%, 980px);
-  max-height: 100%;
   overflow: hidden;
   display: flex;
   align-items: stretch;
+  container-type: inline-size;
   border: 1px solid rgba(22, 32, 42, 0.18);
   border-radius: 8px;
   color: var(--slide-fg);
@@ -263,7 +320,7 @@ textarea {
   flex-direction: column;
   justify-content: center;
   gap: 0.7em;
-  padding: clamp(28px, 6vw, 72px);
+  padding: clamp(28px, 7cqw, 72px);
 }
 
 .slide-content > :first-child {
@@ -279,13 +336,13 @@ textarea {
 .slide-content h3 {
   margin: 0 0 0.22em;
   color: inherit;
-  font-size: clamp(1.9rem, 5.2vw, 4.7rem);
+  font-size: clamp(1.9rem, 7.5cqw, 4.7rem);
   line-height: 1.02;
 }
 
 .slide-content p,
 .slide-content li {
-  font-size: clamp(1rem, 2vw, 1.55rem);
+  font-size: clamp(1rem, 2.4cqw, 1.55rem);
   line-height: 1.42;
 }
 
@@ -309,7 +366,7 @@ textarea {
 
 .slide-content img {
   width: 100%;
-  max-height: 48vh;
+  max-height: 42cqw;
   object-fit: cover;
   border-radius: 8px;
 }
@@ -321,7 +378,7 @@ textarea {
   border-radius: 8px;
   color: #f8fafc;
   background: #111827;
-  font-size: clamp(0.82rem, 1.3vw, 1rem);
+  font-size: clamp(0.78rem, 1.5cqw, 1rem);
   line-height: 1.55;
 }
 
@@ -341,7 +398,7 @@ textarea {
 
 .slide-layout-statement .slide-content p {
   max-width: 24ch;
-  font-size: clamp(1.35rem, 3.2vw, 2.7rem);
+  font-size: clamp(1.35rem, 4.5cqw, 2.7rem);
   line-height: 1.12;
 }
 
@@ -362,7 +419,7 @@ textarea {
 
 .slide-layout-code .slide-content h2 {
   color: var(--slide-accent);
-  font-size: clamp(1.5rem, 3.4vw, 3rem);
+  font-size: clamp(1.5rem, 5cqw, 3rem);
 }
 
 .slide-align-center .slide-content {

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { AspectRatio, DeckTheme, Slide } from "../core";
@@ -57,10 +57,12 @@ export function SlideRenderer({
       ].join(" ")}
       style={style}
       data-testid={isThumbnail ? "slide-thumbnail" : "slide-frame"}
-      aria-label={slide.title}
+        aria-label={slide.title}
     >
       <div className="slide-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.markdown}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlTransform}>
+          {slide.markdown}
+        </ReactMarkdown>
       </div>
     </article>
   );
@@ -68,4 +70,12 @@ export function SlideRenderer({
 
 function toCssAspectRatio(aspectRatio: AspectRatio): string {
   return aspectRatio.replace(":", " / ");
+}
+
+function urlTransform(url: string, key: string): string {
+  if (key === "src" && url.startsWith("data:image/")) {
+    return url;
+  }
+
+  return defaultUrlTransform(url);
 }

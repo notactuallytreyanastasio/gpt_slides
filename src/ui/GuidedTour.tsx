@@ -15,12 +15,12 @@ type GuidedTourProps = {
 const tourSteps: readonly TourStep[] = [
   {
     title: "Write markdown here",
-    body: "This editor is the source of truth. Frontmatter controls the deck, --- starts a new slide, and notes stay inside notes blocks.",
+    body: "This editor is the source of truth. Frontmatter controls the deck, --- starts a new slide, notes stay inside notes blocks, and dropped image files become markdown embeds.",
     target: "[data-tour='source']",
   },
   {
-    title: "Watch the slide take shape",
-    body: "The canvas recompiles as you type, so you can judge layout, emphasis, image scale, and rhythm without leaving the editor.",
+    title: "Scroll the deck as it takes shape",
+    body: "The preview recompiles as you type and stacks the full deck vertically, so you can judge layout, emphasis, image scale, and rhythm without leaving the editor.",
     target: "[data-tour='canvas']",
   },
   {

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const walkthroughSeenKey = "markdown-slides.walkthroughSeen";
+const walkthroughVersion = "deck-flow-images-v1";
 const customDeck = `---
 title: Rapid Test Deck
 theme: paper
@@ -21,10 +22,10 @@ The canvas should update as soon as the source changes.
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate((storageKey) => {
+  await page.evaluate(({ storageKey, version }) => {
     window.localStorage.clear();
-    window.localStorage.setItem(storageKey, "true");
-  }, walkthroughSeenKey);
+    window.localStorage.setItem(storageKey, version);
+  }, { storageKey: walkthroughSeenKey, version: walkthroughVersion });
   await page.reload();
 });
 
@@ -39,11 +40,12 @@ test("walks first-time users through the editor", async ({ page }) => {
   await expect(
     tour.getByRole("heading", { name: "Write markdown here" }),
   ).toBeVisible();
+  await expect(tour).toContainText("dropped image files");
 
   await tour.getByRole("button", { name: "Next" }).click();
 
   await expect(
-    tour.getByRole("heading", { name: "Watch the slide take shape" }),
+    tour.getByRole("heading", { name: "Scroll the deck as it takes shape" }),
   ).toBeVisible();
 
   await tour.getByRole("button", { name: "Skip" }).click();
@@ -109,6 +111,43 @@ theme: neon
   await expect(page.getByRole("alert")).toContainText("theme");
   await expect(page.getByRole("alert")).toContainText("Invalid enum value");
   await expect(page.getByTestId("markdown-source")).toBeVisible();
+});
+
+test("embeds dropped images into the markdown source", async ({ page }) => {
+  const source = page.getByTestId("markdown-source");
+
+  await source.fill(`# Image slide
+
+Drop below:
+`);
+  await source.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    textarea.selectionStart = textarea.value.length;
+    textarea.selectionEnd = textarea.value.length;
+  });
+
+  const dataTransfer = await page.evaluateHandle(() => {
+    const bytes = Uint8Array.from([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0,
+      1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 10, 73, 68,
+      65, 84, 120, 156, 99, 248, 15, 0, 1, 1, 1, 0, 24, 221, 141, 176, 0, 0,
+      0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ]);
+    const file = new File([bytes], "tiny-pixel.png", { type: "image/png" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+
+    return transfer;
+  });
+
+  await source.dispatchEvent("drop", { dataTransfer });
+
+  await expect(source).toHaveValue(/!\[tiny pixel]\(data:image\/png;base64,/);
+  await expect(
+    page.getByTestId("canvas-stage").getByRole("img", {
+      name: "tiny pixel",
+    }),
+  ).toBeVisible();
 });
 
 test("enters presentation mode and navigates with the keyboard", async ({
