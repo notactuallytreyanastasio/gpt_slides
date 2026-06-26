@@ -1,0 +1,31 @@
+export type {
+  AspectRatio,
+  Deck,
+  DeckMetadata,
+  DeckParseIssue,
+  DeckParseResult,
+  DeckTheme,
+  RequestedSlideLayout,
+  Slide,
+  SlideAlignment,
+  SlideDensity,
+  SlideDirective,
+  SlideLayout,
+  SlideStats,
+  SlideStyle,
+} from "./deck";
+export {
+  aspectRatioSchema,
+  deckMetadataSchema,
+  deckSchema,
+  deckThemeSchema,
+  requestedSlideLayoutSchema,
+  slideAlignmentSchema,
+  slideDensitySchema,
+  slideDirectiveSchema,
+  slideLayoutSchema,
+  slideSchema,
+  slideStatsSchema,
+  slideStyleSchema,
+} from "./deck";
+export { parseMarkdownDeck, parseMarkdownDeckOrThrow } from "./parseMarkdownDeck";
