@@ -2,6 +2,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  HelpCircle,
   Maximize2,
   Minimize2,
   RotateCcw,
@@ -16,6 +17,8 @@ import {
   loadDeckDraft,
   saveDeckDraft,
 } from "../shell/localDeckStorage";
+import { hasSeenWalkthrough } from "../shell/walkthroughStorage";
+import { GuidedTour } from "./GuidedTour";
 import { sampleDeckMarkdown } from "./sampleDeck";
 import { SlideRenderer } from "./SlideRenderer";
 
@@ -25,6 +28,7 @@ export function App() {
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
   const [savedAt, setSavedAt] = useState(initialDraft.updatedAt);
   const [isPresenting, setIsPresenting] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(() => !hasSeenWalkthrough());
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
@@ -149,7 +153,7 @@ export function App() {
           <p className="eyebrow">Markdown Slides</p>
           <h1>{deck?.metadata.title ?? "Draft has errors"}</h1>
         </div>
-        <div className="toolbar" aria-label="Deck actions">
+        <div className="toolbar" aria-label="Deck actions" data-tour="toolbar">
           <span className="save-state">
             <Save aria-hidden="true" size={16} />
             {formatSavedAt(savedAt)}
@@ -177,6 +181,15 @@ export function App() {
           <button
             className="icon-button"
             type="button"
+            aria-label="Show walkthrough"
+            title="Show walkthrough"
+            onClick={() => setIsTourOpen(true)}
+          >
+            <HelpCircle size={18} />
+          </button>
+          <button
+            className="icon-button"
+            type="button"
             aria-label="Start presentation"
             title="Start presentation"
             disabled={!deck}
@@ -188,7 +201,11 @@ export function App() {
       </header>
 
       <section className="workspace" aria-label="Deck workspace">
-        <section className="source-panel" aria-labelledby="source-title">
+        <section
+          className="source-panel"
+          aria-labelledby="source-title"
+          data-tour="source"
+        >
           <div className="panel-heading">
             <h2 id="source-title">Source</h2>
             <span>{markdown.length.toLocaleString()} chars</span>
@@ -216,7 +233,11 @@ export function App() {
 
           {deck && activeSlide ? (
             <>
-              <div className="canvas-stage" data-testid="canvas-stage">
+              <div
+                className="canvas-stage"
+                data-testid="canvas-stage"
+                data-tour="canvas"
+              >
                 <SlideRenderer
                   aspectRatio={deck.metadata.aspectRatio}
                   slide={activeSlide}
@@ -267,7 +288,11 @@ export function App() {
           )}
         </section>
 
-        <aside className="outline-panel" aria-labelledby="outline-title">
+        <aside
+          className="outline-panel"
+          aria-labelledby="outline-title"
+          data-tour="outline"
+        >
           <div className="panel-heading">
             <h2 id="outline-title">Slides</h2>
             <span>{deck?.metadata.theme ?? "studio"}</span>
@@ -302,7 +327,11 @@ export function App() {
           )}
 
           {activeSlide ? (
-            <section className="inspector" aria-label="Selected slide details">
+            <section
+              className="inspector"
+              aria-label="Selected slide details"
+              data-tour="inspector"
+            >
               <dl>
                 <div>
                   <dt>Density</dt>
@@ -323,6 +352,7 @@ export function App() {
           ) : null}
         </aside>
       </section>
+      {isTourOpen ? <GuidedTour onClose={() => setIsTourOpen(false)} /> : null}
     </main>
   );
 }

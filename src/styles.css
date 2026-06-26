@@ -150,6 +150,31 @@ select {
   opacity: 0.45;
 }
 
+.text-button,
+.primary-button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.text-button {
+  border: 1px solid #c8d3dc;
+  color: #334453;
+  background: #ffffff;
+}
+
+.text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.primary-button {
+  border: 1px solid #147d8f;
+  color: #ffffff;
+  background: #147d8f;
+}
+
 .workspace {
   min-height: 0;
   display: grid;
@@ -503,6 +528,70 @@ textarea {
 .error-panel ul {
   margin: 0;
   padding-left: 18px;
+}
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.tour-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 16, 21, 0.52);
+}
+
+.tour-highlight {
+  position: absolute;
+  border: 2px solid #ffb703;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 9999px rgba(7, 16, 21, 0.2),
+    0 12px 36px rgba(0, 0, 0, 0.18);
+}
+
+.tour-card {
+  position: absolute;
+  right: clamp(16px, 4vw, 42px);
+  bottom: clamp(16px, 4vw, 42px);
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid #c8d3dc;
+  border-radius: 8px;
+  color: #16202a;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(7, 16, 21, 0.26);
+  pointer-events: auto;
+}
+
+.tour-progress {
+  margin: 0 0 8px;
+  color: #147d8f;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tour-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.tour-card p {
+  margin: 0;
+  color: #51606d;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
 }
 
 @media (max-width: 1120px) {

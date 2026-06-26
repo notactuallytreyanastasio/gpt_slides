@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+const walkthroughSeenKey = "markdown-slides.walkthroughSeen";
 const customDeck = `---
 title: Rapid Test Deck
 theme: paper
@@ -20,10 +21,39 @@ The canvas should update as soon as the source changes.
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => {
+  await page.evaluate((storageKey) => {
     window.localStorage.clear();
-  });
+    window.localStorage.setItem(storageKey, "true");
+  }, walkthroughSeenKey);
   await page.reload();
+});
+
+test("walks first-time users through the editor", async ({ page }) => {
+  await page.evaluate((storageKey) => {
+    window.localStorage.removeItem(storageKey);
+  }, walkthroughSeenKey);
+  await page.reload();
+
+  await expect(page.getByTestId("guided-tour")).toBeVisible();
+  const tour = page.getByTestId("guided-tour");
+  await expect(
+    tour.getByRole("heading", { name: "Write markdown here" }),
+  ).toBeVisible();
+
+  await tour.getByRole("button", { name: "Next" }).click();
+
+  await expect(
+    tour.getByRole("heading", { name: "Watch the slide take shape" }),
+  ).toBeVisible();
+
+  await tour.getByRole("button", { name: "Skip" }).click();
+  await expect(page.getByTestId("guided-tour")).toBeHidden();
+
+  await page.reload();
+  await expect(page.getByTestId("guided-tour")).toBeHidden();
+
+  await page.getByRole("button", { name: "Show walkthrough" }).click();
+  await expect(page.getByTestId("guided-tour")).toBeVisible();
 });
 
 test("updates the canvas from markdown and persists locally", async ({
