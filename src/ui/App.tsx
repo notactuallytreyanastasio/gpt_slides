@@ -89,8 +89,12 @@ export function App() {
 
   if (isPresenting && deck && activeSlide) {
     return (
-      <main className="presenter-shell" aria-label="Presentation mode">
-        <div className="presenter-stage">
+      <main
+        className="presenter-shell"
+        aria-label="Presentation mode"
+        data-testid="presenter-shell"
+      >
+        <div className="presenter-stage" data-testid="presenter-stage">
           <SlideRenderer
             aspectRatio={deck.metadata.aspectRatio}
             slide={activeSlide}
@@ -139,7 +143,7 @@ export function App() {
   }
 
   return (
-    <main className="studio-shell">
+    <main className="studio-shell" data-testid="studio-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">Markdown Slides</p>
@@ -191,6 +195,7 @@ export function App() {
           </div>
           <textarea
             aria-label="Markdown source"
+            data-testid="markdown-source"
             spellCheck={false}
             value={markdown}
             onChange={(event) => setMarkdown(event.target.value)}
@@ -211,7 +216,7 @@ export function App() {
 
           {deck && activeSlide ? (
             <>
-              <div className="canvas-stage">
+              <div className="canvas-stage" data-testid="canvas-stage">
                 <SlideRenderer
                   aspectRatio={deck.metadata.aspectRatio}
                   slide={activeSlide}

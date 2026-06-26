@@ -56,6 +56,7 @@ export function SlideRenderer({
         isThumbnail ? "slide-thumbnail-frame" : "",
       ].join(" ")}
       style={style}
+      data-testid={isThumbnail ? "slide-thumbnail" : "slide-frame"}
       aria-label={slide.title}
     >
       <div className="slide-content">
