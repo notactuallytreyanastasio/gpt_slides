@@ -3,6 +3,7 @@ title: Markdown Studio Prototype
 description: A local-first deck about making the editor feel visual.
 theme: studio
 aspectRatio: "16:9"
+transition: slide
 author: Product Lab
 ---
 

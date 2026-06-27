@@ -5,6 +5,7 @@ export type {
   DeckParseIssue,
   DeckParseResult,
   DeckTheme,
+  DeckTransition,
   RequestedSlideLayout,
   Slide,
   SlideAlignment,
@@ -19,6 +20,7 @@ export {
   deckMetadataSchema,
   deckSchema,
   deckThemeSchema,
+  deckTransitionSchema,
   requestedSlideLayoutSchema,
   slideAlignmentSchema,
   slideDensitySchema,
@@ -29,3 +31,5 @@ export {
   slideStyleSchema,
 } from "./deck";
 export { parseMarkdownDeck, parseMarkdownDeckOrThrow } from "./parseMarkdownDeck";
+export { updateMarkdownDeckMetadataSource } from "./updateMarkdownDeckMetadata";
+export type { DeckMetadataPatch } from "./updateMarkdownDeckMetadata";

@@ -38,6 +38,19 @@ test("walks first-time users through the editor", async ({ page }) => {
   await expect(page.getByTestId("guided-tour")).toBeVisible();
   const tour = page.getByTestId("guided-tour");
   await expect(
+    tour.getByRole("heading", { name: "Tune the deck shell" }),
+  ).toBeVisible();
+  await expect(tour).toContainText("frontmatter");
+
+  await tour.getByRole("button", { name: "Next" }).click();
+
+  await expect(
+    tour.getByRole("heading", { name: "Shape markdown quickly" }),
+  ).toBeVisible();
+
+  await tour.getByRole("button", { name: "Next" }).click();
+
+  await expect(
     tour.getByRole("heading", { name: "Write markdown here" }),
   ).toBeVisible();
   await expect(tour).toContainText("dropped image files");
@@ -65,9 +78,7 @@ test("updates the canvas from markdown and persists locally", async ({
 
   await source.fill(customDeck);
 
-  await expect(
-    page.getByRole("heading", { name: "Rapid Test Deck" }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Deck title")).toHaveValue("Rapid Test Deck");
   await expect(
     page.getByTestId("canvas-stage").getByRole("heading", {
       name: "First Moment",
@@ -95,6 +106,38 @@ test("updates the canvas from markdown and persists locally", async ({
       "The canvas should update as soon as the source changes.",
     ),
   ).toBeVisible();
+});
+
+test("edits deck metadata and formats markdown through toolbar controls", async ({
+  page,
+}) => {
+  const source = page.getByTestId("markdown-source");
+
+  await page.getByLabel("Deck title").fill("Best Worlds Deck");
+  await page.getByLabel("Theme").selectOption("midnight");
+  await page.getByLabel("Aspect ratio").selectOption("4:3");
+  await page.getByLabel("Transition").selectOption("zoom");
+
+  await expect(source).toHaveValue(/title: Best Worlds Deck/);
+  await expect(source).toHaveValue(/theme: midnight/);
+  await expect(source).toHaveValue(/aspectRatio: 4:3/);
+  await expect(source).toHaveValue(/transition: zoom/);
+
+  await source.fill(`# Toolbar\n\nFocus word`);
+  await source.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    const start = textarea.value.indexOf("Focus");
+    textarea.selectionStart = start;
+    textarea.selectionEnd = start + "Focus".length;
+  });
+
+  await page.getByRole("button", { name: "Bold" }).click();
+
+  await expect(source).toHaveValue(/\*\*Focus\*\* word/);
+
+  await page.getByRole("button", { name: "Insert slide separator" }).click();
+
+  await expect(source).toHaveValue(/---\n\n# New slide/);
 });
 
 test("shows typed parse feedback without losing the editor", async ({

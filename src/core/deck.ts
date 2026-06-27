@@ -3,6 +3,16 @@ import { z } from "zod";
 export const deckThemeSchema = z.enum(["studio", "paper", "midnight"]);
 export type DeckTheme = z.infer<typeof deckThemeSchema>;
 
+export const deckTransitionSchema = z.enum([
+  "none",
+  "fade",
+  "slide",
+  "convex",
+  "concave",
+  "zoom",
+]);
+export type DeckTransition = z.infer<typeof deckTransitionSchema>;
+
 export const aspectRatioSchema = z.enum(["16:9", "4:3", "1:1"]);
 export type AspectRatio = z.infer<typeof aspectRatioSchema>;
 
@@ -34,6 +44,7 @@ export const deckMetadataSchema = z
     description: z.string().trim().optional(),
     theme: deckThemeSchema.default("studio"),
     aspectRatio: aspectRatioSchema.default("16:9"),
+    transition: deckTransitionSchema.default("slide"),
     author: z.string().trim().optional(),
   })
   .strict();

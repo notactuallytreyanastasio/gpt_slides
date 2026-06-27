@@ -13,12 +13,15 @@ you write, and the whole thing can be hosted as static files on GitHub Pages.
 - Markdown as the source of truth for every slide.
 - Live deck rendering while editing.
 - A scrolling full-deck preview so slide rhythm is visible at a glance.
-- Slide thumbnails for quick navigation.
+- Compact frontmatter controls for title, theme, aspect ratio, and transition.
+- Markdown formatting tools for headings, emphasis, lists, quotes, links, code, and slide separators.
+- Slide thumbnails with numbers and layout badges for quick navigation.
 - Speaker notes kept beside the selected slide.
-- Lightweight slide stats for density, words, and bullets.
-- Frontmatter-driven deck metadata.
+- Lightweight slide stats for density, words, bullets, images, code blocks, and alignment.
+- Frontmatter-driven deck metadata that stays in the markdown file.
 - Per-slide directives for layout, background, accent, alignment, and IDs.
 - Drag-and-drop image embedding directly into the markdown editor.
+- Markdown import, markdown download, and static share links from the toolbar.
 - Presentation mode with keyboard navigation.
 - First-run guided walkthrough, with replay from the toolbar.
 - LocalStorage persistence with no backend.
@@ -50,6 +53,7 @@ title: Launch Review
 description: Notes for the weekly product review
 theme: studio
 aspectRatio: "16:9"
+transition: slide
 author: Product Lab
 ---
 ```
@@ -124,6 +128,7 @@ The **functional core** lives in `src/core`:
 
 - typed deck contracts
 - frontmatter validation
+- frontmatter source updates
 - slide splitting
 - slide directive parsing
 - speaker note extraction
@@ -135,7 +140,8 @@ The **imperative shell** lives around it:
 
 - React UI
 - LocalStorage persistence
-- file download
+- markdown import/download
+- static share links
 - drag-and-drop image handling
 - browser presentation mode
 - guided walkthrough state
@@ -180,6 +186,8 @@ The prototype uses two layers of tests:
 Current browser flows cover:
 
 - first-visit walkthrough
+- frontmatter control edits
+- markdown toolbar formatting
 - markdown editing and live preview updates
 - LocalStorage persistence through reload
 - typed parse feedback for invalid metadata
@@ -255,4 +263,5 @@ This is an early prototype, but the core loop is working:
 6. Deploy the static app to GitHub Pages.
 
 Next useful directions would be theme authoring, HTML/PDF export, richer layout
-directives, deck import/export polish, and eventually collaboration.
+directives, slide reordering, renderer plugins for math/code highlighting, and
+eventually collaboration.

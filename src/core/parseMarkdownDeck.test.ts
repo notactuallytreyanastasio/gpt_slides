@@ -37,6 +37,7 @@ align: center
       title: "Visual Exploration",
       theme: "paper",
       aspectRatio: "16:9",
+      transition: "slide",
       author: "Product Lab",
     });
     expect(deck.slides).toHaveLength(2);

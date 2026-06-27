@@ -1,23 +1,44 @@
 import {
+  Bold,
   ChevronLeft,
   ChevronRight,
-  Download,
+  Code2,
+  FileDown,
+  FileUp,
   HelpCircle,
-  Maximize2,
+  Heading1,
+  Heading2,
+  Italic,
+  Link2,
+  List,
   Minimize2,
+  Plus,
+  Presentation,
+  Quote,
   RotateCcw,
   Save,
+  Share2,
 } from "lucide-react";
-import type { DragEvent } from "react";
+import type { ChangeEvent, DragEvent, KeyboardEvent, MouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { parseMarkdownDeck } from "../core";
+import {
+  type AspectRatio,
+  type DeckTheme,
+  type DeckTransition,
+  parseMarkdownDeck,
+  updateMarkdownDeckMetadataSource,
+} from "../core";
 import { downloadMarkdown } from "../shell/downloadMarkdown";
 import {
   clearDeckDraft,
   loadDeckDraft,
   saveDeckDraft,
 } from "../shell/localDeckStorage";
+import {
+  buildMarkdownShareUrl,
+  readMarkdownShareHash,
+} from "../shell/shareMarkdownDeck";
 import { hasSeenWalkthrough } from "../shell/walkthroughStorage";
 import {
   imageFilesToMarkdownEmbeds,
@@ -27,15 +48,52 @@ import { GuidedTour } from "./GuidedTour";
 import { sampleDeckMarkdown } from "./sampleDeck";
 import { SlideRenderer } from "./SlideRenderer";
 
+const themeOptions: readonly DeckTheme[] = ["studio", "paper", "midnight"];
+const aspectRatioOptions: readonly AspectRatio[] = ["16:9", "4:3", "1:1"];
+const transitionOptions: readonly DeckTransition[] = [
+  "none",
+  "fade",
+  "slide",
+  "convex",
+  "concave",
+  "zoom",
+];
+
+type MarkdownEdit = {
+  readonly selectionEnd: number;
+  readonly selectionStart: number;
+  readonly value: string;
+};
+
+type MarkdownTransform = (
+  value: string,
+  selectionStart: number,
+  selectionEnd: number,
+) => MarkdownEdit;
+
 export function App() {
   const sourceRef = useRef<HTMLTextAreaElement>(null);
-  const initialDraft = useMemo(() => loadDeckDraft(sampleDeckMarkdown), []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialDraft = useMemo(() => {
+    const sharedMarkdown = readMarkdownShareHash();
+
+    if (sharedMarkdown) {
+      return {
+        markdown: sharedMarkdown,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return loadDeckDraft(sampleDeckMarkdown);
+  }, []);
   const [markdown, setMarkdown] = useState(initialDraft.markdown);
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
   const [savedAt, setSavedAt] = useState(initialDraft.updatedAt);
   const [isPresenting, setIsPresenting] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(() => !hasSeenWalkthrough());
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
@@ -70,7 +128,7 @@ export function App() {
       return;
     }
 
-    function handleKeyDown(event: KeyboardEvent): void {
+    function handleKeyDown(event: globalThis.KeyboardEvent): void {
       if (event.key === "Escape") {
         setIsPresenting(false);
         return;
@@ -92,6 +150,30 @@ export function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [deck, isPresenting]);
 
+  useEffect(() => {
+    if (!isFileMenuOpen) {
+      return;
+    }
+
+    function closeMenu(): void {
+      setIsFileMenuOpen(false);
+    }
+
+    function closeMenuWithKeyboard(event: globalThis.KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setIsFileMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("mousedown", closeMenu);
+    window.addEventListener("keydown", closeMenuWithKeyboard);
+
+    return () => {
+      window.removeEventListener("mousedown", closeMenu);
+      window.removeEventListener("keydown", closeMenuWithKeyboard);
+    };
+  }, [isFileMenuOpen]);
+
   function moveSlide(delta: number): void {
     if (!deck) {
       return;
@@ -100,6 +182,142 @@ export function App() {
     setSelectedSlideIndex((current) =>
       Math.min(Math.max(current + delta, 0), deck.slides.length - 1),
     );
+  }
+
+  function updateDeckMetadata(
+    patch: Parameters<typeof updateMarkdownDeckMetadataSource>[1],
+  ): void {
+    setMarkdown((currentMarkdown) =>
+      updateMarkdownDeckMetadataSource(currentMarkdown, patch),
+    );
+  }
+
+  function updateDeckTitle(value: string): void {
+    updateDeckMetadata({
+      title: value.trim().length > 0 ? value : "Untitled deck",
+    });
+  }
+
+  function applyMarkdownTransform(transform: MarkdownTransform): void {
+    const textarea = sourceRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    const edit = transform(
+      markdown,
+      textarea.selectionStart,
+      textarea.selectionEnd,
+    );
+
+    setMarkdown(edit.value);
+    window.requestAnimationFrame(() => {
+      sourceRef.current?.focus();
+      sourceRef.current?.setSelectionRange(
+        edit.selectionStart,
+        edit.selectionEnd,
+      );
+    });
+  }
+
+  function handleMarkdownShortcut(
+    event: KeyboardEvent<HTMLTextAreaElement>,
+  ): void {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if (key === "b") {
+      event.preventDefault();
+      applyMarkdownTransform(wrapSelection("**", "**", "bold text"));
+    }
+
+    if (key === "i") {
+      event.preventDefault();
+      applyMarkdownTransform(wrapSelection("*", "*", "italic text"));
+    }
+
+    if (key === "k") {
+      event.preventDefault();
+      applyMarkdownTransform(insertLink);
+    }
+  }
+
+  function keepEditorFocus(event: MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+  }
+
+  async function importMarkdownFile(file: File): Promise<void> {
+    let importedMarkdown: string;
+
+    try {
+      importedMarkdown = await file.text();
+    } catch {
+      window.alert(`Could not read ${file.name}.`);
+      return;
+    }
+
+    const imported = parseMarkdownDeck(importedMarkdown);
+
+    if (!imported.ok) {
+      const message = imported.issues
+        .map((issue) => {
+          const path =
+            issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+
+          return `${path}${issue.message}`;
+        })
+        .join("\n");
+
+      window.alert(`That markdown deck has parse issues:\n${message}`);
+      return;
+    }
+
+    setMarkdown(importedMarkdown);
+    setSelectedSlideIndex(0);
+  }
+
+  function handleFileImport(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      void importMarkdownFile(file);
+    }
+
+    event.target.value = "";
+  }
+
+  async function copyShareLink(): Promise<void> {
+    const url = buildMarkdownShareUrl(markdown);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareState("copied");
+      window.setTimeout(() => setShareState("idle"), 1600);
+    } catch {
+      window.prompt("Copy this deck link", url);
+    }
+  }
+
+  function insertSlideSeparator(): void {
+    applyMarkdownTransform((value, selectionStart, selectionEnd) => {
+      const prefix = value.slice(0, selectionStart);
+      const suffix = value.slice(selectionEnd);
+      const separator =
+        `${prefix.length > 0 && !prefix.endsWith("\n") ? "\n\n" : ""}` +
+        "---\n\n# New slide\n\nWrite Markdown here." +
+        `${suffix.length > 0 && !suffix.startsWith("\n") ? "\n\n" : ""}`;
+      const nextSelectionStart = prefix.length + separator.length;
+
+      return {
+        selectionEnd: nextSelectionStart,
+        selectionStart: nextSelectionStart,
+        value: `${prefix}${separator}${suffix}`,
+      };
+    });
   }
 
   function resetDeck(): void {
@@ -217,35 +435,167 @@ export function App() {
   return (
     <main className="studio-shell" data-testid="studio-shell">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Markdown Slides</p>
-          <h1>{deck?.metadata.title ?? "Draft has errors"}</h1>
-        </div>
-        <div className="toolbar" aria-label="Deck actions" data-tour="toolbar">
+        <div className="deck-identity">
+          <span className="brand-mark" aria-hidden="true">
+            ◆
+          </span>
+          <label className="deck-title-control">
+            <span className="eyebrow">Markdown Slides</span>
+            <input
+              className="deck-title-input"
+              aria-label="Deck title"
+              value={deck?.metadata.title ?? "Draft has errors"}
+              disabled={!deck}
+              onChange={(event) => updateDeckTitle(event.target.value)}
+            />
+          </label>
           <span className="save-state">
-            <Save aria-hidden="true" size={16} />
+            <Save aria-hidden="true" size={15} />
             {formatSavedAt(savedAt)}
           </span>
+        </div>
+
+        <div
+          className="deck-controls"
+          aria-label="Deck metadata controls"
+          data-tour="deck-controls"
+        >
+          <label>
+            <span>Theme</span>
+            <select
+              aria-label="Theme"
+              value={deck?.metadata.theme ?? "studio"}
+              disabled={!deck}
+              onChange={(event) =>
+                updateDeckMetadata({
+                  theme: event.target.value as DeckTheme,
+                })
+              }
+            >
+              {themeOptions.map((theme) => (
+                <option key={theme} value={theme}>
+                  {theme}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Ratio</span>
+            <select
+              aria-label="Aspect ratio"
+              value={deck?.metadata.aspectRatio ?? "16:9"}
+              disabled={!deck}
+              onChange={(event) =>
+                updateDeckMetadata({
+                  aspectRatio: event.target.value as AspectRatio,
+                })
+              }
+            >
+              {aspectRatioOptions.map((aspectRatio) => (
+                <option key={aspectRatio} value={aspectRatio}>
+                  {aspectRatio}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Move</span>
+            <select
+              aria-label="Transition"
+              value={deck?.metadata.transition ?? "slide"}
+              disabled={!deck}
+              onChange={(event) =>
+                updateDeckMetadata({
+                  transition: event.target.value as DeckTransition,
+                })
+              }
+            >
+              {transitionOptions.map((transition) => (
+                <option key={transition} value={transition}>
+                  {transition}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="toolbar" aria-label="Deck actions" data-tour="toolbar">
+          <div
+            className="file-menu"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="text-button compact-button"
+              type="button"
+              aria-expanded={isFileMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setIsFileMenuOpen((isOpen) => !isOpen)}
+            >
+              File ▾
+            </button>
+            {isFileMenuOpen ? (
+              <div className="menu-popover" role="menu">
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    downloadMarkdown(
+                      markdown,
+                      deck?.metadata.title ?? "markdown-deck",
+                    );
+                    setIsFileMenuOpen(false);
+                  }}
+                >
+                  <FileDown size={15} />
+                  Download markdown
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setIsFileMenuOpen(false);
+                  }}
+                >
+                  <FileUp size={15} />
+                  Import markdown
+                </button>
+                <div className="menu-divider" />
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    resetDeck();
+                    setIsFileMenuOpen(false);
+                  }}
+                >
+                  <RotateCcw size={15} />
+                  Reset sample
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md,.markdown,text/markdown,text/plain"
+            hidden
+            onChange={handleFileImport}
+          />
           <button
             className="icon-button"
             type="button"
-            aria-label="Reset sample deck"
-            title="Reset sample deck"
-            onClick={resetDeck}
+            aria-label="Copy share link"
+            title="Copy share link"
+            onClick={() => void copyShareLink()}
           >
-            <RotateCcw size={18} />
+            <Share2 size={18} />
           </button>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Download markdown"
-            title="Download markdown"
-            onClick={() =>
-              downloadMarkdown(markdown, deck?.metadata.title ?? "markdown-deck")
-            }
-          >
-            <Download size={18} />
-          </button>
+          {shareState === "copied" ? (
+            <span className="share-state" role="status">
+              Copied
+            </span>
+          ) : null}
           <button
             className="icon-button"
             type="button"
@@ -256,14 +606,15 @@ export function App() {
             <HelpCircle size={18} />
           </button>
           <button
-            className="icon-button"
+            className="primary-button present-action"
             type="button"
             aria-label="Start presentation"
             title="Start presentation"
             disabled={!deck}
             onClick={() => setIsPresenting(true)}
           >
-            <Maximize2 size={18} />
+            <Presentation size={17} />
+            Present
           </button>
         </div>
       </header>
@@ -280,6 +631,139 @@ export function App() {
             <h2 id="source-title">Source</h2>
             <span>{markdown.length.toLocaleString()} chars</span>
           </div>
+          <div
+            className="markdown-toolbar"
+            aria-label="Markdown formatting tools"
+            data-tour="markdown-tools"
+          >
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Heading 1"
+              title="Heading 1"
+              onMouseDown={keepEditorFocus}
+              onClick={() => applyMarkdownTransform(linePrefix("# "))}
+            >
+              <Heading1 size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Heading 2"
+              title="Heading 2"
+              onMouseDown={keepEditorFocus}
+              onClick={() => applyMarkdownTransform(linePrefix("## "))}
+            >
+              <Heading2 size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Bold"
+              title="Bold"
+              onMouseDown={keepEditorFocus}
+              onClick={() =>
+                applyMarkdownTransform(wrapSelection("**", "**", "bold text"))
+              }
+            >
+              <Bold size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Italic"
+              title="Italic"
+              onMouseDown={keepEditorFocus}
+              onClick={() =>
+                applyMarkdownTransform(wrapSelection("*", "*", "italic text"))
+              }
+            >
+              <Italic size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Bullet list"
+              title="Bullet list"
+              onMouseDown={keepEditorFocus}
+              onClick={() => applyMarkdownTransform(linePrefix("- "))}
+            >
+              <List size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Quote"
+              title="Quote"
+              onMouseDown={keepEditorFocus}
+              onClick={() => applyMarkdownTransform(linePrefix("> "))}
+            >
+              <Quote size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Link"
+              title="Link"
+              onMouseDown={keepEditorFocus}
+              onClick={() => applyMarkdownTransform(insertLink)}
+            >
+              <Link2 size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Inline code"
+              title="Inline code"
+              onMouseDown={keepEditorFocus}
+              onClick={() =>
+                applyMarkdownTransform(wrapSelection("`", "`", "code"))
+              }
+            >
+              <Code2 size={16} />
+            </button>
+            <button
+              className="editor-tool"
+              type="button"
+              aria-label="Insert slide separator"
+              title="Insert slide separator"
+              onMouseDown={keepEditorFocus}
+              onClick={insertSlideSeparator}
+            >
+              <Plus size={16} />
+            </button>
+            <details className="syntax-help">
+              <summary aria-label="Markdown syntax tips" title="Markdown syntax tips">
+                <HelpCircle size={15} />
+              </summary>
+              <div className="syntax-help-pop">
+                <dl>
+                  <div>
+                    <dt>Slides</dt>
+                    <dd>
+                      <code>---</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Options</dt>
+                    <dd>
+                      <code>&lt;!-- layout: split --&gt;</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Notes</dt>
+                    <dd>
+                      <code>:::notes</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Images</dt>
+                    <dd>Drop files here</dd>
+                  </div>
+                </dl>
+              </div>
+            </details>
+          </div>
           <textarea
             aria-label="Markdown source"
             data-testid="markdown-source"
@@ -290,59 +774,25 @@ export function App() {
             onDragLeave={() => setIsDraggingImage(false)}
             onDragOver={handleSourceDragOver}
             onDrop={handleSourceDrop}
+            onKeyDown={handleMarkdownShortcut}
           />
         </section>
 
         <section className="canvas-panel" aria-labelledby="canvas-title">
-          <div className="panel-heading">
-            <h2 id="canvas-title">Canvas</h2>
-            {deck ? (
-              <span>
-                {selectedSlideIndex + 1} / {deck.slides.length}
-              </span>
-            ) : (
-              <span>Parse error</span>
-            )}
-          </div>
-
-          {deck && activeSlide ? (
-            <>
-              <div className="canvas-stage" data-testid="canvas-stage">
-                <div className="deck-flow" data-tour="canvas">
-                  {deck.slides.map((slide) => (
-                    <article
-                      className={
-                        slide.index === selectedSlideIndex
-                          ? "flow-slide active"
-                          : "flow-slide"
-                      }
-                      data-flow-slide={slide.index}
-                      key={slide.id}
-                      onClick={() => setSelectedSlideIndex(slide.index)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedSlideIndex(slide.index);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Select ${slide.title}`}
-                    >
-                      <div className="flow-slide-heading">
-                        <span>Slide {slide.index + 1}</span>
-                        <strong>{slide.title}</strong>
-                      </div>
-                      <SlideRenderer
-                        aspectRatio={deck.metadata.aspectRatio}
-                        slide={slide}
-                        theme={deck.metadata.theme}
-                      />
-                    </article>
-                  ))}
-                </div>
-              </div>
-              <div className="transport" aria-label="Slide navigation">
+          <div className="panel-heading canvas-heading">
+            <div>
+              <h2 id="canvas-title">Canvas</h2>
+              {deck ? (
+                <span>
+                  {selectedSlideIndex + 1} / {deck.slides.length} ·{" "}
+                  {deck.metadata.transition}
+                </span>
+              ) : (
+                <span>Parse error</span>
+              )}
+            </div>
+            {deck && activeSlide ? (
+              <div className="transport compact-transport" aria-label="Slide navigation">
                 <button
                   className="icon-button"
                   type="button"
@@ -368,7 +818,46 @@ export function App() {
                   <ChevronRight size={18} />
                 </button>
               </div>
-            </>
+            ) : null}
+          </div>
+
+          {deck && activeSlide ? (
+            <div className="canvas-stage" data-testid="canvas-stage">
+              <div className="deck-flow" data-tour="canvas">
+                {deck.slides.map((slide) => (
+                  <article
+                    className={
+                      slide.index === selectedSlideIndex
+                        ? "flow-slide active"
+                        : "flow-slide"
+                    }
+                    data-flow-slide={slide.index}
+                    key={slide.id}
+                    onClick={() => setSelectedSlideIndex(slide.index)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedSlideIndex(slide.index);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Select ${slide.title}`}
+                  >
+                    <div className="flow-slide-heading">
+                      <span>Slide {slide.index + 1}</span>
+                      <strong>{slide.title}</strong>
+                      <em>{slide.layout}</em>
+                    </div>
+                    <SlideRenderer
+                      aspectRatio={deck.metadata.aspectRatio}
+                      slide={slide}
+                      theme={deck.metadata.theme}
+                    />
+                  </article>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="error-panel" role="alert">
               <h2>Markdown issue</h2>
@@ -393,7 +882,7 @@ export function App() {
         >
           <div className="panel-heading">
             <h2 id="outline-title">Slides</h2>
-            <span>{deck?.metadata.theme ?? "studio"}</span>
+            <span>{deck ? `${deck.slides.length} total` : "studio"}</span>
           </div>
 
           {deck ? (
@@ -416,7 +905,11 @@ export function App() {
                     slide={slide}
                     theme={deck.metadata.theme}
                   />
-                  <span>{slide.title}</span>
+                  <span className="thumbnail-meta">
+                    <span>{slide.index + 1}</span>
+                    <strong>{slide.title}</strong>
+                    <em>{slide.layout}</em>
+                  </span>
                 </button>
               ))}
             </div>
@@ -443,6 +936,18 @@ export function App() {
                   <dt>Bullets</dt>
                   <dd>{activeSlide.stats.bulletCount}</dd>
                 </div>
+                <div>
+                  <dt>Images</dt>
+                  <dd>{activeSlide.stats.imageCount}</dd>
+                </div>
+                <div>
+                  <dt>Code</dt>
+                  <dd>{activeSlide.stats.codeBlockCount}</dd>
+                </div>
+                <div>
+                  <dt>Align</dt>
+                  <dd>{activeSlide.style.align}</dd>
+                </div>
               </dl>
               <h2>Notes</h2>
               <p>{activeSlide.notes || "No notes"}</p>
@@ -459,6 +964,60 @@ function hasImageFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.items).some(
     (item) => item.kind === "file" && item.type.startsWith("image/"),
   );
+}
+
+function wrapSelection(
+  before: string,
+  after = before,
+  placeholder = "",
+): MarkdownTransform {
+  return (value, selectionStart, selectionEnd) => {
+    const selected = value.slice(selectionStart, selectionEnd) || placeholder;
+    const nextSelectionStart = selectionStart + before.length;
+    const nextSelectionEnd = nextSelectionStart + selected.length;
+
+    return {
+      selectionEnd: nextSelectionEnd,
+      selectionStart: nextSelectionStart,
+      value:
+        value.slice(0, selectionStart) +
+        before +
+        selected +
+        after +
+        value.slice(selectionEnd),
+    };
+  };
+}
+
+function linePrefix(prefix: string): MarkdownTransform {
+  return (value, selectionStart) => {
+    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+
+    return {
+      selectionEnd: selectionStart + prefix.length,
+      selectionStart: selectionStart + prefix.length,
+      value: value.slice(0, lineStart) + prefix + value.slice(lineStart),
+    };
+  };
+}
+
+function insertLink(
+  value: string,
+  selectionStart: number,
+  selectionEnd: number,
+): MarkdownEdit {
+  const selected = value.slice(selectionStart, selectionEnd) || "link text";
+  const insertion = `[${selected}](https://example.com)`;
+  const urlStart = selectionStart + selected.length + 3;
+
+  return {
+    selectionEnd: urlStart + "https://example.com".length,
+    selectionStart: urlStart,
+    value:
+      value.slice(0, selectionStart) +
+      insertion +
+      value.slice(selectionEnd),
+  };
 }
 
 function formatSavedAt(value: string): string {

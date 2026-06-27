@@ -14,8 +14,18 @@ type GuidedTourProps = {
 
 const tourSteps: readonly TourStep[] = [
   {
+    title: "Tune the deck shell",
+    body: "Title, theme, ratio, and transition controls rewrite the frontmatter so the markdown remains portable.",
+    target: "[data-tour='deck-controls']",
+  },
+  {
+    title: "Shape markdown quickly",
+    body: "Use the formatting row for headings, emphasis, links, lists, code, and new slide separators without leaving the editor.",
+    target: "[data-tour='markdown-tools']",
+  },
+  {
     title: "Write markdown here",
-    body: "This editor is the source of truth. Frontmatter controls the deck, --- starts a new slide, notes stay inside notes blocks, and dropped image files become markdown embeds.",
+    body: "The source stays canonical: frontmatter controls the deck, --- starts a slide, notes stay in notes blocks, and dropped image files become markdown embeds.",
     target: "[data-tour='source']",
   },
   {
@@ -35,7 +45,7 @@ const tourSteps: readonly TourStep[] = [
   },
   {
     title: "Present or export quickly",
-    body: "Use the toolbar to reset the sample, download markdown, replay this walkthrough, or jump into presentation mode.",
+    body: "Use File for markdown import/export, copy a static share link, replay this walkthrough, or jump into presentation mode.",
     target: "[data-tour='toolbar']",
   },
 ];
