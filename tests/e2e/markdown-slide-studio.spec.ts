@@ -366,6 +366,35 @@ Drop below:
   ).toBeVisible();
 });
 
+test("renders standalone X and Bluesky post links as slide embeds", async ({
+  page,
+}) => {
+  await page.getByTestId("markdown-source").fill(`# Embedded X
+
+https://x.com/jack/status/20
+
+---
+
+# Embedded Bluesky
+
+https://bsky.app/profile/did:plc:example123/post/3abcxyz
+`);
+  await page.locator('[data-flow-slide="0"]').click();
+
+  await expect(
+    page.getByTestId("focused-preview").getByTestId("social-embed-tweet"),
+  ).toBeVisible();
+  await expect(page.getByTestId("focused-preview")).toContainText(
+    "Open original",
+  );
+
+  await page.locator('[data-flow-slide="1"]').click();
+
+  await expect(
+    page.getByTestId("focused-preview").getByTestId("social-embed-bluesky"),
+  ).toBeVisible();
+});
+
 test("enters presentation mode and navigates with the keyboard", async ({
   page,
 }) => {

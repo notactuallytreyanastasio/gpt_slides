@@ -1,8 +1,19 @@
-import type { CSSProperties } from "react";
+import {
+  Children,
+  isValidElement,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { AspectRatio, DeckTheme, Slide } from "../core";
+import {
+  type SocialEmbed,
+  parseSocialEmbedUrl,
+} from "../shell/socialEmbeds";
+import { SocialEmbedCard } from "./SocialEmbedCard";
 
 type SlideRendererProps = {
   readonly aspectRatio: AspectRatio;
@@ -57,10 +68,30 @@ export function SlideRenderer({
       ].join(" ")}
       style={style}
       data-testid={isThumbnail ? "slide-thumbnail" : "slide-frame"}
-        aria-label={slide.title}
+      aria-label={slide.title}
     >
       <div className="slide-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlTransform}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          urlTransform={urlTransform}
+          components={{
+            p({ children }) {
+              const embed = getStandaloneSocialEmbed(children);
+
+              if (embed) {
+                return (
+                  <SocialEmbedCard
+                    embed={embed}
+                    isThumbnail={isThumbnail}
+                    theme={theme}
+                  />
+                );
+              }
+
+              return <p>{children}</p>;
+            },
+          }}
+        >
           {slide.markdown}
         </ReactMarkdown>
       </div>
@@ -78,4 +109,54 @@ function urlTransform(url: string, key: string): string {
   }
 
   return defaultUrlTransform(url);
+}
+
+function getStandaloneSocialEmbed(children: ReactNode): SocialEmbed | undefined {
+  const meaningfulChildren = Children.toArray(children).filter(
+    (child) => !(typeof child === "string" && child.trim().length === 0),
+  );
+
+  if (meaningfulChildren.length !== 1) {
+    return undefined;
+  }
+
+  const onlyChild = meaningfulChildren[0];
+
+  if (typeof onlyChild === "string") {
+    return parseSocialEmbedUrl(onlyChild);
+  }
+
+  if (!isValidElement(onlyChild)) {
+    return undefined;
+  }
+
+  const element = onlyChild as ReactElement<{
+    readonly children?: ReactNode;
+    readonly href?: unknown;
+  }>;
+
+  if (typeof element.props.href === "string") {
+    return parseSocialEmbedUrl(element.props.href);
+  }
+
+  return parseSocialEmbedUrl(getTextContent(element.props.children));
+}
+
+function getTextContent(value: ReactNode): string {
+  return Children.toArray(value)
+    .map((child) => {
+      if (typeof child === "string" || typeof child === "number") {
+        return String(child);
+      }
+
+      if (isValidElement(child)) {
+        return getTextContent(
+          (child as ReactElement<{ readonly children?: ReactNode }>).props
+            .children,
+        );
+      }
+
+      return "";
+    })
+    .join("");
 }
