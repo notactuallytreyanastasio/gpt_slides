@@ -26,7 +26,7 @@ type GuidedTourProps = {
 const tourSteps: readonly TourStep[] = [
   {
     title: "Start with the whole studio",
-    body: "This first screen is the product: source on the left, the rendered deck in the middle, and deck structure on the right.",
+    body: "This first screen is the product: a tile board for structure, markdown as the source of truth, and a focused preview for the selected slide.",
     cta: "Everything autosaves locally while you work.",
     placement: "center",
     target: "[data-testid='studio-shell']",
@@ -60,16 +60,16 @@ const tourSteps: readonly TourStep[] = [
     target: "[data-tour='slide-add']",
   },
   {
-    title: "Watch the full deck flow",
-    body: "The canvas recompiles as you type and keeps the whole deck visible, so you can judge layout, emphasis, image scale, and rhythm.",
-    cta: "Click any slide in the canvas to make it the active slide.",
+    title: "Browse the slide board",
+    body: "The board lays horizontal columns and vertical stacks into compact tiles, so you can scan the shape of the whole deck while you think.",
+    cta: "Click any tile to sync the markdown editor and preview.",
     placement: "left",
     target: "[data-tour='canvas']",
   },
   {
-    title: "Read the structure at a glance",
-    body: "The outline groups slides by column, so horizontal branches and vertical stacks stay visible as the deck grows.",
-    cta: "Use it like a slide map when pacing the story.",
+    title: "Preview the active slide",
+    body: "The preview shows the selected slide at readable size while the board stays available for navigation.",
+    cta: "Use the board, arrow keys, or editor cursor to change the active slide.",
     placement: "left",
     target: "[data-tour='outline']",
   },

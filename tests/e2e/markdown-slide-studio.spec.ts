@@ -123,16 +123,17 @@ test("walks first-time users through the editor", async ({ page }) => {
   await expect(page.getByTestId("guided-tour")).toBeVisible();
 });
 
-test("updates the canvas from markdown and persists locally", async ({
+test("updates the preview from markdown and persists locally", async ({
   page,
 }) => {
   const source = page.getByTestId("markdown-source");
 
   await source.fill(customDeck);
+  await page.locator('[data-flow-slide="0"]').click();
 
   await expect(page.getByLabel("Deck title")).toHaveValue("Rapid Test Deck");
   await expect(
-    page.getByTestId("canvas-stage").getByRole("heading", {
+    page.getByTestId("focused-preview").getByRole("heading", {
       name: "First Moment",
     }),
   ).toBeVisible();
@@ -154,28 +155,21 @@ test("updates the canvas from markdown and persists locally", async ({
 
   await expect(page.getByTestId("markdown-source")).toHaveValue(customDeck);
   await expect(
-    page.getByTestId("canvas-stage").getByText(
+    page.getByTestId("focused-preview").getByText(
       "The canvas should update as soon as the source changes.",
     ),
   ).toBeVisible();
 });
 
-test("syncs markdown cursor, source cells, and rendered slides", async ({
+test("syncs markdown cursor, slide board, and focused preview", async ({
   page,
 }) => {
   const source = page.getByTestId("markdown-source");
 
   await source.fill(customDeck);
 
-  await expect(page.getByTestId("source-cell-strip")).toBeVisible();
-  await expect
-    .poll(() =>
-      page
-        .getByTestId("source-cell-strip")
-        .evaluate((element) => element.getBoundingClientRect().height),
-    )
-    .toBeLessThan(90);
-  await expect(page.getByTestId("source-cell-1")).toContainText(
+  await expect(page.getByTestId("slide-board")).toBeVisible();
+  await expect(page.locator('[data-flow-slide="1"]')).toContainText(
     "Second Moment",
   );
 
@@ -188,29 +182,22 @@ test("syncs markdown cursor, source cells, and rendered slides", async ({
     textarea.dispatchEvent(new Event("select", { bubbles: true }));
   }, secondSlideOffset);
 
-  await expect(page.getByTestId("source-cell-1")).toHaveClass(/active/);
   await expect(page.locator('[data-flow-slide="1"]')).toHaveClass(/active/);
+  await expect(
+    page.getByTestId("focused-preview").getByRole("heading", {
+      name: "Second Moment",
+    }),
+  ).toBeVisible();
+  await expect(page.locator('[data-flow-slide="1"]')).toBeInViewport();
 
-  const activeSlideIsVisible = await page
-    .locator('[data-flow-slide="1"]')
-    .evaluate((slideElement) => {
-      const stage = slideElement.closest(".canvas-stage");
+  await page.locator('[data-flow-slide="0"]').click();
 
-      if (!stage) {
-        return false;
-      }
-
-      const slideRect = slideElement.getBoundingClientRect();
-      const stageRect = stage.getBoundingClientRect();
-
-      return slideRect.top >= stageRect.top && slideRect.top <= stageRect.bottom;
-    });
-  expect(activeSlideIsVisible).toBe(true);
-
-  await page.getByTestId("source-cell-0").click();
-
-  await expect(page.getByTestId("source-cell-0")).toHaveClass(/active/);
   await expect(page.locator('[data-flow-slide="0"]')).toHaveClass(/active/);
+  await expect(
+    page.getByTestId("focused-preview").getByRole("heading", {
+      name: "First Moment",
+    }),
+  ).toBeVisible();
   await expect
     .poll(() =>
       source.evaluate((element) => (element as HTMLTextAreaElement).selectionStart),
@@ -218,30 +205,30 @@ test("syncs markdown cursor, source cells, and rendered slides", async ({
     .toBe(customDeck.indexOf("# First Moment"));
 });
 
-test("keeps long horizontal decks in a compact slide sequence", async ({
+test("keeps long horizontal decks browsable in the slide board", async ({
   page,
 }) => {
   await page.getByTestId("markdown-source").fill(horizontalDeck);
 
-  await expect(page.getByTestId("slide-sequence-list")).toBeVisible();
-  await expect(page.getByText("8 slide sequence")).toBeVisible();
-  await expect(page.getByText("Column 8")).toBeHidden();
+  await expect(page.getByTestId("slide-board")).toBeVisible();
+  await expect(page.locator(".slide-board-column")).toHaveCount(8);
 
-  await page.getByTestId("source-cell-1").click();
+  await page.locator('[data-flow-slide="1"]').click();
   await expect(page.locator('[data-flow-slide="1"]')).toHaveClass(/active/);
   await expect(
-    page.locator('[data-flow-slide="1"]').getByRole("heading", {
+    page.getByTestId("focused-preview").getByRole("heading", {
       name: "Two",
     }),
-  ).toBeInViewport();
+  ).toBeVisible();
 
-  await page
-    .getByTestId("slide-sequence-list")
-    .getByRole("button", { name: /^Select Seven$/ })
-    .click();
+  await page.getByRole("button", { name: /^Select Seven$/ }).click();
 
   await expect(page.locator('[data-flow-slide="6"]')).toHaveClass(/active/);
-  await expect(page.locator('[data-outline-slide="6"]')).toHaveClass(/active/);
+  await expect(
+    page.getByTestId("focused-preview").getByRole("heading", {
+      name: "Seven",
+    }),
+  ).toBeVisible();
 });
 
 test("edits deck metadata and formats markdown through toolbar controls", async ({
@@ -373,7 +360,7 @@ Drop below:
 
   await expect(source).toHaveValue(/!\[tiny pixel]\(data:image\/png;base64,/);
   await expect(
-    page.getByTestId("canvas-stage").getByRole("img", {
+    page.getByTestId("focused-preview").getByRole("img", {
       name: "tiny pixel",
     }),
   ).toBeVisible();

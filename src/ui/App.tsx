@@ -107,12 +107,6 @@ export function App() {
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
-  const shouldUseSlideSequenceOutline = deck
-    ? deck.columns.length > 6 &&
-      deck.columns.filter((column) => column.length === 1).length /
-        deck.columns.length >=
-        0.75
-    : false;
 
   useEffect(() => {
     const nextDraft = saveDeckDraft(markdown);
@@ -155,16 +149,6 @@ export function App() {
 
     document
       .querySelector(`[data-flow-slide="${selectedSlideIndex}"]`)
-      ?.scrollIntoView({ block: "center", behavior: "auto" });
-    document
-      .querySelector(`[data-source-cell="${selectedSlideIndex}"]`)
-      ?.scrollIntoView({
-        block: "nearest",
-        inline: "center",
-        behavior: "auto",
-      });
-    document
-      .querySelector(`[data-outline-slide="${selectedSlideIndex}"]`)
       ?.scrollIntoView({ block: "center", behavior: "auto" });
   }, [isPresenting, selectedSlideIndex]);
 
@@ -810,6 +794,129 @@ export function App() {
       </header>
 
       <section className="workspace" aria-label="Deck workspace">
+        <section className="canvas-panel" aria-labelledby="canvas-title">
+          <div className="panel-heading canvas-heading">
+            <div>
+              <h2 id="canvas-title">Slides</h2>
+              {deck ? (
+                <span>
+                  {deck.columns.length} columns · {deck.slides.length} total ·{" "}
+                  {deck.metadata.transition}
+                </span>
+              ) : (
+                <span>Parse error</span>
+              )}
+            </div>
+            {deck && activeSlide ? (
+              <div className="canvas-actions">
+                <div
+                  className="slide-add-controls"
+                  aria-label="Add slides around selected slide"
+                  data-tour="slide-add"
+                >
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide above"
+                    title="Add slide above"
+                    onClick={() => addSlide("up")}
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide left"
+                    title="Add slide left"
+                    onClick={() => addSlide("left")}
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide right"
+                    title="Add slide right"
+                    onClick={() => addSlide("right")}
+                  >
+                    <ArrowRight size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide below"
+                    title="Add slide below"
+                    onClick={() => addSlide("down")}
+                  >
+                    <ArrowDown size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {deck ? (
+            <div className="canvas-stage" data-testid="canvas-stage">
+              <div
+                className="slide-board"
+                aria-label="Spatial slide board"
+                data-testid="slide-board"
+                data-tour="canvas"
+              >
+                {deck.columns.map((column, columnIndex) => (
+                  <section className="slide-board-column" key={columnIndex}>
+                    <div className="slide-board-column-heading">
+                      <span>{columnIndex + 1}</span>
+                    </div>
+                    {column.map((slide) => (
+                      <button
+                        className={
+                          slide.index === selectedSlideIndex
+                            ? "slide-tile active"
+                            : "slide-tile"
+                        }
+                        data-flow-slide={slide.index}
+                        key={slide.id}
+                        onClick={() => selectSlide(slide.index)}
+                        type="button"
+                        aria-label={`Select ${slide.title}`}
+                      >
+                        <span className="slide-tile-position">
+                          {slide.positionLabel}
+                        </span>
+                        <SlideRenderer
+                          aspectRatio={deck.metadata.aspectRatio}
+                          isThumbnail
+                          slide={slide}
+                          theme={deck.metadata.theme}
+                        />
+                        <span className="slide-tile-meta">
+                          <strong>{slide.title}</strong>
+                          <em>{slide.layout}</em>
+                        </span>
+                      </button>
+                    ))}
+                  </section>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="error-panel" role="alert">
+              <h2>Markdown issue</h2>
+              <ul>
+                {!parseResult.ok
+                  ? parseResult.issues.map((issue) => (
+                      <li key={`${issue.path.join(".")}-${issue.message}`}>
+                        {issue.path.length > 0 ? `${issue.path.join(".")}: ` : ""}
+                        {issue.message}
+                      </li>
+                    ))
+                  : null}
+              </ul>
+            </div>
+          )}
+        </section>
+
         <section
           className={
             isDraggingImage ? "source-panel dragging-image" : "source-panel"
@@ -957,43 +1064,6 @@ export function App() {
               </div>
             </details>
           </div>
-          {deck ? (
-            <div
-              className="source-cell-strip"
-              aria-label="Markdown slide definitions"
-              data-testid="source-cell-strip"
-            >
-              {deck.slides.map((slide) => (
-                <button
-                  className={
-                    slide.index === selectedSlideIndex
-                      ? "source-cell active"
-                      : "source-cell"
-                  }
-                  data-source-cell={slide.index}
-                  data-testid={`source-cell-${slide.index}`}
-                  key={slide.id}
-                  type="button"
-                  aria-label={`Edit slide ${slide.positionLabel}: ${slide.title}`}
-                  onClick={() =>
-                    selectSlide(slide.index, {
-                      focusSource: true,
-                      syncSource: true,
-                    })
-                  }
-                >
-                  <span className="source-cell-meta">
-                    <strong>{slide.positionLabel}</strong>
-                    <em>
-                      Lines {slide.sourceRange.lineStart}-{slide.sourceRange.lineEnd}
-                    </em>
-                  </span>
-                  <span className="source-cell-title">{slide.title}</span>
-                  <code>{getSlideSourcePreview(markdown, slide)}</code>
-                </button>
-              ))}
-            </div>
-          ) : null}
           <textarea
             aria-label="Markdown source"
             data-testid="markdown-source"
@@ -1012,257 +1082,30 @@ export function App() {
           />
         </section>
 
-        <section className="canvas-panel" aria-labelledby="canvas-title">
-          <div className="panel-heading canvas-heading">
-            <div>
-              <h2 id="canvas-title">Canvas</h2>
-              {deck ? (
-                <span>
-                  {activeSlide?.positionLabel ?? selectedSlideIndex + 1} /{" "}
-                  {deck.slides.length} · {deck.columns.length} columns ·{" "}
-                  {deck.metadata.transition}
-                </span>
-              ) : (
-                <span>Parse error</span>
-              )}
-            </div>
-            {deck && activeSlide ? (
-              <div className="canvas-actions">
-                <div
-                  className="slide-add-controls"
-                  aria-label="Add slides around selected slide"
-                  data-tour="slide-add"
-                >
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Add slide above"
-                    title="Add slide above"
-                    onClick={() => addSlide("up")}
-                  >
-                    <ArrowUp size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Add slide left"
-                    title="Add slide left"
-                    onClick={() => addSlide("left")}
-                  >
-                    <ArrowLeft size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Add slide right"
-                    title="Add slide right"
-                    onClick={() => addSlide("right")}
-                  >
-                    <ArrowRight size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Add slide below"
-                    title="Add slide below"
-                    onClick={() => addSlide("down")}
-                  >
-                    <ArrowDown size={16} />
-                  </button>
-                </div>
-                <div className="transport compact-transport" aria-label="Slide navigation">
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Previous slide"
-                    title="Previous slide"
-                    disabled={selectedSlideIndex === 0}
-                    onClick={() => moveSlide(-1)}
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Previous column"
-                    title="Previous column"
-                    disabled={activeSlide.columnIndex === 0}
-                    onClick={() => moveSlideHorizontally(-1)}
-                  >
-                    <ArrowLeft size={16} />
-                  </button>
-                  <div>
-                    <strong>{activeSlide.title}</strong>
-                    <span>
-                      {activeSlide.positionLabel} · {activeSlide.layout}
-                    </span>
-                  </div>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Next column"
-                    title="Next column"
-                    disabled={activeSlide.columnIndex === deck.columns.length - 1}
-                    onClick={() => moveSlideHorizontally(1)}
-                  >
-                    <ArrowRight size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Next slide"
-                    title="Next slide"
-                    disabled={selectedSlideIndex === deck.slides.length - 1}
-                    onClick={() => moveSlide(1)}
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {deck && activeSlide ? (
-            <div className="canvas-stage" data-testid="canvas-stage">
-              <div className="deck-flow" data-tour="canvas">
-                {deck.slides.map((slide) => (
-                  <article
-                    className={
-                      slide.index === selectedSlideIndex
-                        ? "flow-slide active"
-                        : "flow-slide"
-                    }
-                    data-flow-slide={slide.index}
-                    key={slide.id}
-                    onClick={() => selectSlide(slide.index)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectSlide(slide.index);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Select ${slide.title}`}
-                  >
-                    <div className="flow-slide-heading">
-                      <span>Slide {slide.positionLabel}</span>
-                      <strong>{slide.title}</strong>
-                      <em>{slide.layout}</em>
-                    </div>
-                    <SlideRenderer
-                      aspectRatio={deck.metadata.aspectRatio}
-                      slide={slide}
-                      theme={deck.metadata.theme}
-                    />
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="error-panel" role="alert">
-              <h2>Markdown issue</h2>
-              <ul>
-                {!parseResult.ok
-                  ? parseResult.issues.map((issue) => (
-                      <li key={`${issue.path.join(".")}-${issue.message}`}>
-                        {issue.path.length > 0 ? `${issue.path.join(".")}: ` : ""}
-                        {issue.message}
-                      </li>
-                    ))
-                  : null}
-              </ul>
-            </div>
-          )}
-        </section>
-
         <aside
-          className="outline-panel"
-          aria-labelledby="outline-title"
+          className="preview-panel"
+          aria-labelledby="preview-title"
           data-tour="outline"
         >
           <div className="panel-heading">
-            <h2 id="outline-title">Slides</h2>
+            <h2 id="preview-title">Preview</h2>
             <span>
-              {deck
-                ? shouldUseSlideSequenceOutline
-                  ? `${deck.slides.length} slide sequence`
-                  : `${deck.columns.length} columns · ${deck.slides.length} total`
+              {activeSlide
+                ? `${activeSlide.positionLabel} · ${activeSlide.layout}`
                 : "studio"}
             </span>
           </div>
 
-          {deck && shouldUseSlideSequenceOutline ? (
-            <div
-              className="thumbnail-list slide-sequence-list"
-              data-testid="slide-sequence-list"
-            >
-              {deck.slides.map((slide) => (
-                <button
-                  className={
-                    slide.index === selectedSlideIndex
-                      ? "thumbnail-button sequence-thumbnail active"
-                      : "thumbnail-button sequence-thumbnail"
-                  }
-                  data-outline-slide={slide.index}
-                  type="button"
-                  key={slide.id}
-                  aria-label={`Select ${slide.title}`}
-                  onClick={() => selectSlide(slide.index)}
-                >
-                  <SlideRenderer
-                    aspectRatio={deck.metadata.aspectRatio}
-                    isThumbnail
-                    slide={slide}
-                    theme={deck.metadata.theme}
-                  />
-                  <span className="thumbnail-meta">
-                    <span>{slide.positionLabel}</span>
-                    <strong>{slide.title}</strong>
-                    <em>{slide.layout}</em>
-                  </span>
-                </button>
-              ))}
+          {deck && activeSlide ? (
+            <div className="focused-preview" data-testid="focused-preview">
+              <SlideRenderer
+                aspectRatio={deck.metadata.aspectRatio}
+                slide={activeSlide}
+                theme={deck.metadata.theme}
+              />
             </div>
-          ) : deck ? (
-            <div className="thumbnail-list">
-              {deck.columns.map((column, columnIndex) => (
-                <section className="thumbnail-column" key={columnIndex}>
-                  <div className="thumbnail-column-heading">
-                    <span>Column {columnIndex + 1}</span>
-                    <small>{column.length} deep</small>
-                  </div>
-                  {column.map((slide) => (
-                    <button
-                      className={
-                        slide.index === selectedSlideIndex
-                          ? "thumbnail-button active"
-                          : "thumbnail-button"
-                      }
-                      data-outline-slide={slide.index}
-                      type="button"
-                      key={slide.id}
-                      aria-label={`Select ${slide.title}`}
-                      onClick={() => selectSlide(slide.index)}
-                    >
-                      <SlideRenderer
-                        aspectRatio={deck.metadata.aspectRatio}
-                        isThumbnail
-                        slide={slide}
-                        theme={deck.metadata.theme}
-                      />
-                      <span className="thumbnail-meta">
-                        <span>{slide.positionLabel}</span>
-                        <strong>{slide.title}</strong>
-                        <em>{slide.layout}</em>
-                      </span>
-                    </button>
-                  ))}
-                </section>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">Resolve the parse issue to restore the outline.</p>
+          ) : deck ? null : (
+            <p className="muted">Resolve the parse issue to restore the preview.</p>
           )}
 
           {activeSlide ? (
@@ -1320,18 +1163,6 @@ function hasImageFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.items).some(
     (item) => item.kind === "file" && item.type.startsWith("image/"),
   );
-}
-
-function getSlideSourcePreview(markdown: string, slide: Slide): string {
-  const preview = markdown
-    .slice(slide.sourceRange.contentStart, slide.sourceRange.contentEnd)
-    .trim()
-    .split("\n")
-    .slice(0, 4)
-    .join("\n")
-    .trim();
-
-  return preview.length > 0 ? preview : "(blank slide)";
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
