@@ -79,6 +79,7 @@ export const slideStatsSchema = z.object({
 export type SlideStats = z.infer<typeof slideStatsSchema>;
 
 export const slideSchema = z.object({
+  columnIndex: z.number().int().nonnegative(),
   id: z.string(),
   index: z.number().int().nonnegative(),
   title: z.string(),
@@ -86,12 +87,15 @@ export const slideSchema = z.object({
   requestedLayout: requestedSlideLayoutSchema,
   markdown: z.string(),
   notes: z.string(),
+  positionLabel: z.string(),
+  rowIndex: z.number().int().nonnegative(),
   style: slideStyleSchema,
   stats: slideStatsSchema,
 });
 export type Slide = z.infer<typeof slideSchema>;
 
 export const deckSchema = z.object({
+  columns: z.array(z.array(slideSchema).min(1)).min(1),
   metadata: deckMetadataSchema,
   slides: z.array(slideSchema).min(1),
   source: z.object({

@@ -26,6 +26,13 @@ type SlideDirectiveExtraction = {
   readonly body: string;
 };
 
+type SlideMarkdownChunk = {
+  readonly columnIndex: number;
+  readonly columnLength: number;
+  readonly markdown: string;
+  readonly rowIndex: number;
+};
+
 const slideDirectivePattern = /^\s*<!--\s*\n?([\s\S]*?)\n?\s*-->\s*/;
 const notesBlockPattern = /(^|\n):::\s*notes\s*\n([\s\S]*?)\n:::\s*(?=\n|$)/g;
 
@@ -33,11 +40,17 @@ export function parseMarkdownDeck(markdown: string): DeckParseResult {
   try {
     const normalized = normalizeMarkdown(markdown);
     const { metadata, body } = extractFrontmatter(normalized);
-    const slides = splitSlides(body).map((slideMarkdown, index) =>
-      parseSlide(slideMarkdown, index),
-    );
+    const chunks = splitSlideChunks(body);
+    const slides = chunks.map((chunk, index) => parseSlide(chunk, index));
+    const columns = chunks.reduce<Slide[][]>((deckColumns, chunk, index) => {
+      deckColumns[chunk.columnIndex] ??= [];
+      deckColumns[chunk.columnIndex][chunk.rowIndex] = slides[index];
+
+      return deckColumns;
+    }, []);
 
     const deck = deckSchema.parse({
+      columns,
       metadata,
       slides,
       source: {
@@ -98,33 +111,54 @@ function extractFrontmatter(markdown: string): FrontmatterExtraction {
   };
 }
 
-function splitSlides(markdown: string): readonly string[] {
-  const slides: string[] = [];
+function splitSlideChunks(markdown: string): readonly SlideMarkdownChunk[] {
+  const columns: string[][] = [[]];
   const current: string[] = [];
 
+  function pushCurrentSlide(): void {
+    const slide = current.join("\n").trim();
+
+    if (slide.length > 0) {
+      columns[columns.length - 1].push(slide);
+    }
+
+    current.length = 0;
+  }
+
   for (const line of markdown.split("\n")) {
-    if (line.trim() === "---") {
-      const slide = current.join("\n").trim();
-      if (slide.length > 0) {
-        slides.push(slide);
+    const trimmed = line.trim();
+
+    if (trimmed === "---" || trimmed === "--") {
+      pushCurrentSlide();
+
+      if (trimmed === "---") {
+        columns.push([]);
       }
-      current.length = 0;
+
       continue;
     }
 
     current.push(line);
   }
 
-  const finalSlide = current.join("\n").trim();
-  if (finalSlide.length > 0) {
-    slides.push(finalSlide);
-  }
+  pushCurrentSlide();
 
-  return slides.length > 0 ? slides : [""];
+  const populatedColumns = columns.filter((column) => column.length > 0);
+  const usableColumns =
+    populatedColumns.length > 0 ? populatedColumns : [[""]];
+
+  return usableColumns.flatMap((column, columnIndex) =>
+    column.map((slideMarkdown, rowIndex) => ({
+      columnIndex,
+      columnLength: column.length,
+      markdown: slideMarkdown,
+      rowIndex,
+    })),
+  );
 }
 
-function parseSlide(markdown: string, index: number): Slide {
-  const { directive, body } = extractSlideDirective(markdown);
+function parseSlide(chunk: SlideMarkdownChunk, index: number): Slide {
+  const { directive, body } = extractSlideDirective(chunk.markdown);
   const { content, notes } = extractSpeakerNotes(body);
   const stats = analyzeSlide(content);
   const firstHeading = getFirstHeading(content);
@@ -132,8 +166,13 @@ function parseSlide(markdown: string, index: number): Slide {
   const requestedLayout = directive.layout;
   const layout =
     requestedLayout === "auto" ? inferLayout(content, stats) : requestedLayout;
+  const positionLabel =
+    chunk.columnLength > 1
+      ? `${chunk.columnIndex + 1}.${chunk.rowIndex + 1}`
+      : `${chunk.columnIndex + 1}`;
 
   return {
+    columnIndex: chunk.columnIndex,
     id: directive.id ?? createSlideId(index, title),
     index,
     title,
@@ -141,6 +180,8 @@ function parseSlide(markdown: string, index: number): Slide {
     requestedLayout,
     markdown: content,
     notes,
+    positionLabel,
+    rowIndex: chunk.rowIndex,
     style: {
       background: directive.background,
       accent: directive.accent,
@@ -148,6 +189,29 @@ function parseSlide(markdown: string, index: number): Slide {
     },
     stats,
   };
+}
+
+export function splitMarkdownSlides(markdown: string): readonly string[] {
+  const normalized = normalizeMarkdown(markdown);
+  const { body } = extractFrontmatter(normalized);
+
+  return splitSlideChunks(body).map((chunk) => chunk.markdown);
+}
+
+export function getMarkdownSlideGrid(
+  markdown: string,
+): readonly (readonly string[])[] {
+  const normalized = normalizeMarkdown(markdown);
+  const { body } = extractFrontmatter(normalized);
+  const chunks = splitSlideChunks(body);
+  const columns = chunks.reduce<string[][]>((deckColumns, chunk) => {
+    deckColumns[chunk.columnIndex] ??= [];
+    deckColumns[chunk.columnIndex][chunk.rowIndex] = chunk.markdown;
+
+    return deckColumns;
+  }, []);
+
+  return columns;
 }
 
 function extractSlideDirective(markdown: string): SlideDirectiveExtraction {

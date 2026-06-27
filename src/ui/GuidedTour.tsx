@@ -20,7 +20,7 @@ const tourSteps: readonly TourStep[] = [
   },
   {
     title: "Shape markdown quickly",
-    body: "Use the formatting row for headings, emphasis, links, lists, code, and new slide separators without leaving the editor.",
+    body: "Use the formatting row for headings, emphasis, links, lists, code, and a quick slide to the right.",
     target: "[data-tour='markdown-tools']",
   },
   {
@@ -30,12 +30,17 @@ const tourSteps: readonly TourStep[] = [
   },
   {
     title: "Scroll the deck as it takes shape",
-    body: "The preview recompiles as you type and stacks the full deck vertically, so you can judge layout, emphasis, image scale, and rhythm without leaving the editor.",
+    body: "The preview recompiles as you type and keeps the whole deck visible, so you can judge layout, emphasis, image scale, and rhythm without leaving the editor.",
     target: "[data-tour='canvas']",
   },
   {
+    title: "Branch the deck in four directions",
+    body: "Use the arrow controls to add slides above, below, left, or right of the selected slide. The source uses --- for right and -- for down.",
+    target: "[data-tour='slide-add']",
+  },
+  {
     title: "Skim the deck rhythm",
-    body: "The outline gives you quick slide selection and a visual sense of pacing across the whole deck.",
+    body: "The outline groups slides by column so vertical stacks and horizontal branches stay visible while you edit.",
     target: "[data-tour='outline']",
   },
   {

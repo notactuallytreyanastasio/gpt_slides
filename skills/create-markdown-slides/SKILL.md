@@ -20,10 +20,11 @@ Create a complete `.md` deck that is ready for the Markdown Slides app.
 ## Deck Authoring Rules
 
 - Start with YAML frontmatter containing at least `title`, `theme`, and `aspectRatio`.
-- Separate slides with a line containing only `---`.
+- Use `---` for a new horizontal slide/column and `--` for a vertical slide below the current column.
 - Use `:::notes` blocks for speaker notes.
 - Use a leading HTML comment with YAML for slide directives when layout/style control matters.
 - Keep each slide focused on one idea.
+- Use vertical stacks sparingly for optional detail, drill-downs, examples, or speaker-controlled branches.
 - Prefer explicit layouts for important slides: `title`, `statement`, `bullets`, `split`, `image`, or `code`.
 - Use `layout: auto` or omit layout for straightforward slides.
 - Use `accent` colors sparingly to create pacing and emphasis.

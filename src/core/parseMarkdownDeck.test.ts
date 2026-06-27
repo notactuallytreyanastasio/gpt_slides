@@ -88,6 +88,35 @@ const deck = parseMarkdownDeck(source);
     ]);
   });
 
+  it("parses vertical slides with -- separators inside horizontal columns", () => {
+    const deck = parseMarkdownDeckOrThrow(`# One
+
+--
+
+## One Below
+
+---
+
+# Two
+`);
+
+    expect(deck.columns).toHaveLength(2);
+    expect(deck.columns.map((column) => column.map((slide) => slide.title))).toEqual([
+      ["One", "One Below"],
+      ["Two"],
+    ]);
+    expect(deck.slides.map((slide) => slide.positionLabel)).toEqual([
+      "1.1",
+      "1.2",
+      "2",
+    ]);
+    expect(deck.slides[1]).toMatchObject({
+      columnIndex: 0,
+      rowIndex: 1,
+      title: "One Below",
+    });
+  });
+
   it("returns typed parse issues for invalid metadata", () => {
     const result = parseMarkdownDeck(`---
 title: Demo

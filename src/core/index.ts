@@ -30,6 +30,11 @@ export {
   slideStatsSchema,
   slideStyleSchema,
 } from "./deck";
+export { insertMarkdownSlideSource } from "./insertMarkdownSlide";
+export type {
+  InsertMarkdownSlideResult,
+  SlideInsertDirection,
+} from "./insertMarkdownSlide";
 export { parseMarkdownDeck, parseMarkdownDeckOrThrow } from "./parseMarkdownDeck";
 export { updateMarkdownDeckMetadataSource } from "./updateMarkdownDeckMetadata";
 export type { DeckMetadataPatch } from "./updateMarkdownDeckMetadata";

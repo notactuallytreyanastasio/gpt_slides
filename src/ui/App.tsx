@@ -1,4 +1,8 @@
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Bold,
   ChevronLeft,
   ChevronRight,
@@ -26,6 +30,8 @@ import {
   type AspectRatio,
   type DeckTheme,
   type DeckTransition,
+  type SlideInsertDirection,
+  insertMarkdownSlideSource,
   parseMarkdownDeck,
   updateMarkdownDeckMetadataSource,
 } from "../core";
@@ -134,21 +140,72 @@ export function App() {
         return;
       }
 
-      if (event.key === "ArrowRight" || event.key === " ") {
+      if (event.key === " ") {
         event.preventDefault();
         moveSlide(1);
       }
 
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        moveSlideHorizontally(1);
+      }
+
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        moveSlide(-1);
+        moveSlideHorizontally(-1);
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveSlideVertically(1);
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveSlideVertically(-1);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deck, isPresenting]);
+  }, [activeSlide, deck, isPresenting]);
+
+  useEffect(() => {
+    if (isPresenting || !deck || !activeSlide) {
+      return;
+    }
+
+    function handleKeyDown(event: globalThis.KeyboardEvent): void {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        moveSlideHorizontally(1);
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        moveSlideHorizontally(-1);
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveSlideVertically(1);
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveSlideVertically(-1);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeSlide, deck, isPresenting]);
 
   useEffect(() => {
     if (!isFileMenuOpen) {
@@ -182,6 +239,35 @@ export function App() {
     setSelectedSlideIndex((current) =>
       Math.min(Math.max(current + delta, 0), deck.slides.length - 1),
     );
+  }
+
+  function moveSlideVertically(delta: number): void {
+    if (!deck || !activeSlide) {
+      return;
+    }
+
+    const target = deck.columns[activeSlide.columnIndex]?.[
+      activeSlide.rowIndex + delta
+    ];
+
+    if (target) {
+      setSelectedSlideIndex(target.index);
+    }
+  }
+
+  function moveSlideHorizontally(delta: number): void {
+    if (!deck || !activeSlide) {
+      return;
+    }
+
+    const targetColumn = deck.columns[activeSlide.columnIndex + delta];
+
+    if (!targetColumn) {
+      return;
+    }
+
+    const targetRowIndex = Math.min(activeSlide.rowIndex, targetColumn.length - 1);
+    setSelectedSlideIndex(targetColumn[targetRowIndex].index);
   }
 
   function updateDeckMetadata(
@@ -302,22 +388,16 @@ export function App() {
     }
   }
 
-  function insertSlideSeparator(): void {
-    applyMarkdownTransform((value, selectionStart, selectionEnd) => {
-      const prefix = value.slice(0, selectionStart);
-      const suffix = value.slice(selectionEnd);
-      const separator =
-        `${prefix.length > 0 && !prefix.endsWith("\n") ? "\n\n" : ""}` +
-        "---\n\n# New slide\n\nWrite Markdown here." +
-        `${suffix.length > 0 && !suffix.startsWith("\n") ? "\n\n" : ""}`;
-      const nextSelectionStart = prefix.length + separator.length;
+  function addSlide(direction: SlideInsertDirection): void {
+    const result = insertMarkdownSlideSource(
+      markdown,
+      selectedSlideIndex,
+      direction,
+    );
 
-      return {
-        selectionEnd: nextSelectionStart,
-        selectionStart: nextSelectionStart,
-        value: `${prefix}${separator}${suffix}`,
-      };
-    });
+    setMarkdown(result.markdown);
+    setSelectedSlideIndex(result.insertedSlideIndex);
+    window.requestAnimationFrame(() => sourceRef.current?.focus());
   }
 
   function resetDeck(): void {
@@ -405,7 +485,7 @@ export function App() {
           <div className="presenter-meta">
             <strong>{activeSlide.title}</strong>
             <span>
-              {selectedSlideIndex + 1} / {deck.slides.length}
+              {activeSlide.positionLabel} / {deck.slides.length}
             </span>
           </div>
           <button
@@ -725,10 +805,10 @@ export function App() {
             <button
               className="editor-tool"
               type="button"
-              aria-label="Insert slide separator"
-              title="Insert slide separator"
+              aria-label="Add slide right"
+              title="Add slide right"
               onMouseDown={keepEditorFocus}
-              onClick={insertSlideSeparator}
+              onClick={() => addSlide("right")}
             >
               <Plus size={16} />
             </button>
@@ -741,7 +821,7 @@ export function App() {
                   <div>
                     <dt>Slides</dt>
                     <dd>
-                      <code>---</code>
+                      <code>--- right, -- down</code>
                     </dd>
                   </div>
                   <div>
@@ -784,7 +864,8 @@ export function App() {
               <h2 id="canvas-title">Canvas</h2>
               {deck ? (
                 <span>
-                  {selectedSlideIndex + 1} / {deck.slides.length} ·{" "}
+                  {activeSlide?.positionLabel ?? selectedSlideIndex + 1} /{" "}
+                  {deck.slides.length} · {deck.columns.length} columns ·{" "}
                   {deck.metadata.transition}
                 </span>
               ) : (
@@ -792,31 +873,97 @@ export function App() {
               )}
             </div>
             {deck && activeSlide ? (
-              <div className="transport compact-transport" aria-label="Slide navigation">
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label="Previous slide"
-                  title="Previous slide"
-                  disabled={selectedSlideIndex === 0}
-                  onClick={() => moveSlide(-1)}
+              <div className="canvas-actions">
+                <div
+                  className="slide-add-controls"
+                  aria-label="Add slides around selected slide"
+                  data-tour="slide-add"
                 >
-                  <ChevronLeft size={18} />
-                </button>
-                <div>
-                  <strong>{activeSlide.title}</strong>
-                  <span>{activeSlide.layout}</span>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide above"
+                    title="Add slide above"
+                    onClick={() => addSlide("up")}
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide left"
+                    title="Add slide left"
+                    onClick={() => addSlide("left")}
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide right"
+                    title="Add slide right"
+                    onClick={() => addSlide("right")}
+                  >
+                    <ArrowRight size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Add slide below"
+                    title="Add slide below"
+                    onClick={() => addSlide("down")}
+                  >
+                    <ArrowDown size={16} />
+                  </button>
                 </div>
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label="Next slide"
-                  title="Next slide"
-                  disabled={selectedSlideIndex === deck.slides.length - 1}
-                  onClick={() => moveSlide(1)}
-                >
-                  <ChevronRight size={18} />
-                </button>
+                <div className="transport compact-transport" aria-label="Slide navigation">
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Previous slide"
+                    title="Previous slide"
+                    disabled={selectedSlideIndex === 0}
+                    onClick={() => moveSlide(-1)}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Previous column"
+                    title="Previous column"
+                    disabled={activeSlide.columnIndex === 0}
+                    onClick={() => moveSlideHorizontally(-1)}
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                  <div>
+                    <strong>{activeSlide.title}</strong>
+                    <span>
+                      {activeSlide.positionLabel} · {activeSlide.layout}
+                    </span>
+                  </div>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Next column"
+                    title="Next column"
+                    disabled={activeSlide.columnIndex === deck.columns.length - 1}
+                    onClick={() => moveSlideHorizontally(1)}
+                  >
+                    <ArrowRight size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Next slide"
+                    title="Next slide"
+                    disabled={selectedSlideIndex === deck.slides.length - 1}
+                    onClick={() => moveSlide(1)}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>
@@ -845,7 +992,7 @@ export function App() {
                     aria-label={`Select ${slide.title}`}
                   >
                     <div className="flow-slide-heading">
-                      <span>Slide {slide.index + 1}</span>
+                      <span>Slide {slide.positionLabel}</span>
                       <strong>{slide.title}</strong>
                       <em>{slide.layout}</em>
                     </div>
@@ -882,35 +1029,47 @@ export function App() {
         >
           <div className="panel-heading">
             <h2 id="outline-title">Slides</h2>
-            <span>{deck ? `${deck.slides.length} total` : "studio"}</span>
+            <span>
+              {deck
+                ? `${deck.columns.length} columns · ${deck.slides.length} total`
+                : "studio"}
+            </span>
           </div>
 
           {deck ? (
             <div className="thumbnail-list">
-              {deck.slides.map((slide) => (
-                <button
-                  className={
-                    slide.index === selectedSlideIndex
-                      ? "thumbnail-button active"
-                      : "thumbnail-button"
-                  }
-                  type="button"
-                  key={slide.id}
-                  aria-label={`Select ${slide.title}`}
-                  onClick={() => setSelectedSlideIndex(slide.index)}
-                >
-                  <SlideRenderer
-                    aspectRatio={deck.metadata.aspectRatio}
-                    isThumbnail
-                    slide={slide}
-                    theme={deck.metadata.theme}
-                  />
-                  <span className="thumbnail-meta">
-                    <span>{slide.index + 1}</span>
-                    <strong>{slide.title}</strong>
-                    <em>{slide.layout}</em>
-                  </span>
-                </button>
+              {deck.columns.map((column, columnIndex) => (
+                <section className="thumbnail-column" key={columnIndex}>
+                  <div className="thumbnail-column-heading">
+                    <span>Column {columnIndex + 1}</span>
+                    <small>{column.length} deep</small>
+                  </div>
+                  {column.map((slide) => (
+                    <button
+                      className={
+                        slide.index === selectedSlideIndex
+                          ? "thumbnail-button active"
+                          : "thumbnail-button"
+                      }
+                      type="button"
+                      key={slide.id}
+                      aria-label={`Select ${slide.title}`}
+                      onClick={() => setSelectedSlideIndex(slide.index)}
+                    >
+                      <SlideRenderer
+                        aspectRatio={deck.metadata.aspectRatio}
+                        isThumbnail
+                        slide={slide}
+                        theme={deck.metadata.theme}
+                      />
+                      <span className="thumbnail-meta">
+                        <span>{slide.positionLabel}</span>
+                        <strong>{slide.title}</strong>
+                        <em>{slide.layout}</em>
+                      </span>
+                    </button>
+                  ))}
+                </section>
               ))}
             </div>
           ) : (
@@ -948,6 +1107,14 @@ export function App() {
                   <dt>Align</dt>
                   <dd>{activeSlide.style.align}</dd>
                 </div>
+                <div>
+                  <dt>Column</dt>
+                  <dd>{activeSlide.columnIndex + 1}</dd>
+                </div>
+                <div>
+                  <dt>Row</dt>
+                  <dd>{activeSlide.rowIndex + 1}</dd>
+                </div>
               </dl>
               <h2>Notes</h2>
               <p>{activeSlide.notes || "No notes"}</p>
@@ -963,6 +1130,18 @@ export function App() {
 function hasImageFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.items).some(
     (item) => item.kind === "file" && item.type.startsWith("image/"),
+  );
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+
+  return (
+    !!element &&
+    (element.tagName === "TEXTAREA" ||
+      element.tagName === "INPUT" ||
+      element.tagName === "SELECT" ||
+      element.isContentEditable)
   );
 }
 

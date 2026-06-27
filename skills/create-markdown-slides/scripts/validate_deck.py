@@ -17,6 +17,7 @@ THEMES = {"studio", "paper", "midnight"}
 ASPECT_RATIOS = {"16:9", "4:3", "1:1"}
 LAYOUTS = {"auto", "title", "statement", "bullets", "split", "image", "code"}
 ALIGNS = {"start", "center", "end"}
+TRANSITIONS = {"none", "fade", "slide", "convex", "concave", "zoom"}
 
 
 def main() -> int:
@@ -100,7 +101,21 @@ def validate_frontmatter(
             + ", ".join(sorted(ASPECT_RATIOS))
         )
 
-    unknown = set(metadata) - {"title", "description", "theme", "aspectRatio", "author"}
+    transition = metadata.get("transition", "slide")
+    if transition not in TRANSITIONS:
+        errors.append(
+            "frontmatter.transition must be one of: "
+            + ", ".join(sorted(TRANSITIONS))
+        )
+
+    unknown = set(metadata) - {
+        "title",
+        "description",
+        "theme",
+        "aspectRatio",
+        "transition",
+        "author",
+    }
     if unknown:
         warnings.append(f"unknown frontmatter fields: {', '.join(sorted(unknown))}")
 
@@ -109,7 +124,7 @@ def split_slides(body: str) -> list[str]:
     slides: list[str] = []
     current: list[str] = []
     for line in body.split("\n"):
-        if line.strip() == "---":
+        if line.strip() in {"---", "--"}:
             slide = "\n".join(current).strip()
             if slide:
                 slides.append(slide)

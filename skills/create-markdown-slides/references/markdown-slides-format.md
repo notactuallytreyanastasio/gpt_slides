@@ -10,6 +10,7 @@ title: Deck Title
 description: Optional deck description
 theme: studio
 aspectRatio: "16:9"
+transition: slide
 author: Product Lab
 ---
 ```
@@ -20,11 +21,19 @@ Supported deck fields:
 - `description`: optional string.
 - `theme`: `studio`, `paper`, or `midnight`.
 - `aspectRatio`: `16:9`, `4:3`, or `1:1`.
+- `transition`: `none`, `fade`, `slide`, `convex`, `concave`, or `zoom`.
 - `author`: optional string.
 
-## Slide Separator
+## Slide Separators
 
-Use a line containing only `---` between slides.
+Use reveal-style separators:
+
+- `---`: new horizontal slide/column to the right.
+- `--`: new vertical slide below the current column.
+
+Use vertical stacks sparingly for drill-down detail, optional examples, or a
+speaker-controlled branch. Most decks should still read well in the flattened
+order.
 
 ## Slide Directives
 
@@ -81,6 +90,7 @@ title: Markdown Studio Demo
 description: A short deck about the markdown slide workflow
 theme: studio
 aspectRatio: "16:9"
+transition: slide
 author: Product Lab
 ---
 
@@ -91,6 +101,14 @@ Draft the story in plain text while the canvas keeps pace.
 :::notes
 Open by emphasizing that markdown remains the source of truth.
 :::
+
+--
+
+## Drill Down
+
+- Vertical slides sit below the current moment
+- Use them for optional depth
+- Keep the main horizontal story clean
 
 ---
 

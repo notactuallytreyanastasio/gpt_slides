@@ -13,6 +13,7 @@ you write, and the whole thing can be hosted as static files on GitHub Pages.
 - Markdown as the source of truth for every slide.
 - Live deck rendering while editing.
 - A scrolling full-deck preview so slide rhythm is visible at a glance.
+- Two-dimensional decks with horizontal columns and vertical slide stacks.
 - Compact frontmatter controls for title, theme, aspect ratio, and transition.
 - Markdown formatting tools for headings, emphasis, lists, quotes, links, code, and slide separators.
 - Slide thumbnails with numbers and layout badges for quick navigation.
@@ -58,16 +59,25 @@ author: Product Lab
 ---
 ```
 
-Slides are separated with `---`:
+Slides use reveal-style separators:
+
+- `---` starts a new horizontal column to the right.
+- `--` starts a vertical slide below the current column.
 
 ```md
 # Opening Slide
 
 Draft the story in plain text while the canvas keeps pace.
 
+--
+
+## Optional Detail Below
+
+Use vertical slides when a thought should sit under the current moment.
+
 ---
 
-## Second Slide
+## Next Horizontal Slide
 
 - Write in markdown
 - Preview the whole deck
@@ -188,6 +198,7 @@ Current browser flows cover:
 - first-visit walkthrough
 - frontmatter control edits
 - markdown toolbar formatting
+- adding slides above, below, left, and right
 - markdown editing and live preview updates
 - LocalStorage persistence through reload
 - typed parse feedback for invalid metadata

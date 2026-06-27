@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const walkthroughSeenKey = "markdown-slides.walkthroughSeen";
-const walkthroughVersion = "deck-flow-images-v1";
+const walkthroughVersion = "deck-grid-controls-v1";
 const customDeck = `---
 title: Rapid Test Deck
 theme: paper
@@ -135,9 +135,59 @@ test("edits deck metadata and formats markdown through toolbar controls", async 
 
   await expect(source).toHaveValue(/\*\*Focus\*\* word/);
 
-  await page.getByRole("button", { name: "Insert slide separator" }).click();
+  await page.getByRole("button", { name: "Add slide right" }).first().click();
 
   await expect(source).toHaveValue(/---\n\n# New slide/);
+});
+
+test("adds slides above, below, left, and right through markdown separators", async ({
+  page,
+}) => {
+  const source = page.getByTestId("markdown-source");
+  const gridDeck = `# One
+
+--
+
+# One Below
+
+---
+
+# Two`;
+
+  await source.fill(gridDeck);
+  await page.getByRole("button", { name: /^Select One Below$/ }).first().click();
+  await page.getByRole("button", { name: "Add slide above" }).click();
+
+  await expect(source).toHaveValue(/# One\n\n--\n\n# New slide\n\nWrite Markdown here\.\n\n--\n\n# One Below/);
+  await expect(page.getByText("1.2 · statement").first()).toBeVisible();
+
+  await source.fill(gridDeck);
+  await page.getByRole("button", { name: /^Select One Below$/ }).first().click();
+  await page.getByRole("button", { name: "Add slide below" }).click();
+
+  await expect(source).toHaveValue(/# One Below\n\n--\n\n# New slide\n\nWrite Markdown here\.\n\n---\n\n# Two/);
+  await expect(page.getByText("1.3 · statement").first()).toBeVisible();
+
+  await source.fill(gridDeck);
+  await page.getByRole("button", { name: /^Select Two$/ }).first().click();
+  await page.getByRole("button", { name: "Add slide left" }).click();
+
+  await expect(source).toHaveValue(/# One Below\n\n---\n\n# New slide\n\nWrite Markdown here\.\n\n---\n\n# Two/);
+  await expect(page.getByText("2 · statement").first()).toBeVisible();
+
+  await source.fill(gridDeck);
+  await page.getByRole("button", { name: /^Select One$/ }).first().click();
+  await page.getByRole("button", { name: "Add slide right" }).last().click();
+
+  await expect(source).toHaveValue(/# One Below\n\n---\n\n# New slide\n\nWrite Markdown here\.\n\n---\n\n# Two/);
+  await expect(page.getByText("2 · statement").first()).toBeVisible();
+
+  await source.fill(gridDeck);
+  await page.getByRole("button", { name: /^Select One$/ }).first().click();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByText("1.2 · title").first()).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText("2 · title").first()).toBeVisible();
 });
 
 test("shows typed parse feedback without losing the editor", async ({
@@ -205,11 +255,19 @@ test("enters presentation mode and navigates with the keyboard", async ({
     }),
   ).toBeVisible();
 
-  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowDown");
 
   await expect(
     page.getByTestId("presenter-stage").getByRole("heading", {
       name: "Visual exploration should survive",
+    }),
+  ).toBeVisible();
+
+  await page.keyboard.press("ArrowRight");
+
+  await expect(
+    page.getByTestId("presenter-stage").getByRole("heading", {
+      name: "Make the deck visible",
     }),
   ).toBeVisible();
 
