@@ -12,16 +12,18 @@ you write, and the whole thing can be hosted as static files on GitHub Pages.
 
 - Markdown as the source of truth for every slide.
 - Live deck rendering while editing.
-- A scrolling full-deck preview so slide rhythm is visible at a glance.
+- A spatial slide board for browsing horizontal chapters and vertical stacks.
+- A focused preview for the selected slide.
 - Two-dimensional decks with horizontal columns and vertical slide stacks.
 - Compact frontmatter controls for title, theme, aspect ratio, and transition.
 - Markdown formatting tools for headings, emphasis, lists, quotes, links, code, and slide separators.
-- Slide thumbnails with numbers and layout badges for quick navigation.
+- Board tiles with position labels and layout badges for quick navigation.
 - Speaker notes kept beside the selected slide.
 - Lightweight slide stats for density, words, bullets, images, code blocks, and alignment.
 - Frontmatter-driven deck metadata that stays in the markdown file.
 - Per-slide directives for layout, background, accent, alignment, and IDs.
 - Drag-and-drop image embedding directly into the markdown editor.
+- Standalone X/Twitter and Bluesky post embeds from pasted post URLs.
 - Markdown import, markdown download, and static share links from the toolbar.
 - Presentation mode with keyboard navigation.
 - First-run guided walkthrough, with replay from the toolbar.
@@ -38,8 +40,8 @@ https://notactuallytreyanastasio.github.io/gpt_slides/
 The app has three main work areas:
 
 - **Source**: the markdown editor. This is the canonical deck file.
-- **Canvas**: a scrollable rendered flow of the full deck.
-- **Slides**: thumbnails plus the selected slide inspector and speaker notes.
+- **Slides**: a spatial board of horizontal columns and vertical stacks.
+- **Preview**: the selected slide plus inspector and speaker notes.
 
 The goal is to preserve the visual, exploratory feeling of building slides
 while keeping the deck easy to edit, diff, export, and host.
@@ -104,8 +106,8 @@ align: center
 ## Visual exploration should survive
 
 - Source editor
-- Live canvas
-- Deck outline
+- Slide board
+- Focused preview
 ```
 
 Supported directive fields:
@@ -203,6 +205,7 @@ Current browser flows cover:
 - LocalStorage persistence through reload
 - typed parse feedback for invalid metadata
 - image drag/drop into the editor
+- standalone X/Twitter and Bluesky post embeds
 - presentation mode and keyboard navigation
 
 Run everything with:
