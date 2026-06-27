@@ -107,6 +107,12 @@ export function App() {
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
+  const shouldUseSlideSequenceOutline = deck
+    ? deck.columns.length > 6 &&
+      deck.columns.filter((column) => column.length === 1).length /
+        deck.columns.length >=
+        0.75
+    : false;
 
   useEffect(() => {
     const nextDraft = saveDeckDraft(markdown);
@@ -149,7 +155,17 @@ export function App() {
 
     document
       .querySelector(`[data-flow-slide="${selectedSlideIndex}"]`)
-      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      ?.scrollIntoView({ block: "center", behavior: "auto" });
+    document
+      .querySelector(`[data-source-cell="${selectedSlideIndex}"]`)
+      ?.scrollIntoView({
+        block: "nearest",
+        inline: "center",
+        behavior: "auto",
+      });
+    document
+      .querySelector(`[data-outline-slide="${selectedSlideIndex}"]`)
+      ?.scrollIntoView({ block: "center", behavior: "auto" });
   }, [isPresenting, selectedSlideIndex]);
 
   useEffect(() => {
@@ -339,7 +355,7 @@ export function App() {
       (slide.sourceRange.lineStart - 1) * lineHeight - textarea.clientHeight * 0.18,
     );
 
-    textarea.scrollTo({ behavior: "smooth", top: nextScrollTop });
+    textarea.scrollTo({ behavior: "auto", top: nextScrollTop });
   }
 
   function updateDeckMetadata(
@@ -954,6 +970,7 @@ export function App() {
                       ? "source-cell active"
                       : "source-cell"
                   }
+                  data-source-cell={slide.index}
                   data-testid={`source-cell-${slide.index}`}
                   key={slide.id}
                   type="button"
@@ -1168,12 +1185,46 @@ export function App() {
             <h2 id="outline-title">Slides</h2>
             <span>
               {deck
-                ? `${deck.columns.length} columns · ${deck.slides.length} total`
+                ? shouldUseSlideSequenceOutline
+                  ? `${deck.slides.length} slide sequence`
+                  : `${deck.columns.length} columns · ${deck.slides.length} total`
                 : "studio"}
             </span>
           </div>
 
-          {deck ? (
+          {deck && shouldUseSlideSequenceOutline ? (
+            <div
+              className="thumbnail-list slide-sequence-list"
+              data-testid="slide-sequence-list"
+            >
+              {deck.slides.map((slide) => (
+                <button
+                  className={
+                    slide.index === selectedSlideIndex
+                      ? "thumbnail-button sequence-thumbnail active"
+                      : "thumbnail-button sequence-thumbnail"
+                  }
+                  data-outline-slide={slide.index}
+                  type="button"
+                  key={slide.id}
+                  aria-label={`Select ${slide.title}`}
+                  onClick={() => selectSlide(slide.index)}
+                >
+                  <SlideRenderer
+                    aspectRatio={deck.metadata.aspectRatio}
+                    isThumbnail
+                    slide={slide}
+                    theme={deck.metadata.theme}
+                  />
+                  <span className="thumbnail-meta">
+                    <span>{slide.positionLabel}</span>
+                    <strong>{slide.title}</strong>
+                    <em>{slide.layout}</em>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : deck ? (
             <div className="thumbnail-list">
               {deck.columns.map((column, columnIndex) => (
                 <section className="thumbnail-column" key={columnIndex}>
@@ -1188,6 +1239,7 @@ export function App() {
                           ? "thumbnail-button active"
                           : "thumbnail-button"
                       }
+                      data-outline-slide={slide.index}
                       type="button"
                       key={slide.id}
                       aria-label={`Select ${slide.title}`}

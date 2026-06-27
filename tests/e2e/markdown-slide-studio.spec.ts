@@ -20,6 +20,41 @@ The canvas should update as soon as the source changes.
 - The slide can be presented
 `;
 
+const horizontalDeck = `---
+title: Long Horizontal Deck
+---
+
+# One
+
+---
+
+# Two
+
+---
+
+# Three
+
+---
+
+# Four
+
+---
+
+# Five
+
+---
+
+# Six
+
+---
+
+# Seven
+
+---
+
+# Eight
+`;
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(({ storageKey, version }) => {
@@ -133,6 +168,13 @@ test("syncs markdown cursor, source cells, and rendered slides", async ({
   await source.fill(customDeck);
 
   await expect(page.getByTestId("source-cell-strip")).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .getByTestId("source-cell-strip")
+        .evaluate((element) => element.getBoundingClientRect().height),
+    )
+    .toBeLessThan(90);
   await expect(page.getByTestId("source-cell-1")).toContainText(
     "Second Moment",
   );
@@ -174,6 +216,32 @@ test("syncs markdown cursor, source cells, and rendered slides", async ({
       source.evaluate((element) => (element as HTMLTextAreaElement).selectionStart),
     )
     .toBe(customDeck.indexOf("# First Moment"));
+});
+
+test("keeps long horizontal decks in a compact slide sequence", async ({
+  page,
+}) => {
+  await page.getByTestId("markdown-source").fill(horizontalDeck);
+
+  await expect(page.getByTestId("slide-sequence-list")).toBeVisible();
+  await expect(page.getByText("8 slide sequence")).toBeVisible();
+  await expect(page.getByText("Column 8")).toBeHidden();
+
+  await page.getByTestId("source-cell-1").click();
+  await expect(page.locator('[data-flow-slide="1"]')).toHaveClass(/active/);
+  await expect(
+    page.locator('[data-flow-slide="1"]').getByRole("heading", {
+      name: "Two",
+    }),
+  ).toBeInViewport();
+
+  await page
+    .getByTestId("slide-sequence-list")
+    .getByRole("button", { name: /^Select Seven$/ })
+    .click();
+
+  await expect(page.locator('[data-flow-slide="6"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-outline-slide="6"]')).toHaveClass(/active/);
 });
 
 test("edits deck metadata and formats markdown through toolbar controls", async ({
