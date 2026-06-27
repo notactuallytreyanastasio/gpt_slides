@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const walkthroughSeenKey = "markdown-slides.walkthroughSeen";
-const walkthroughVersion = "deck-grid-controls-v1";
+const walkthroughVersion = "joyride-getting-started-v1";
 const customDeck = `---
 title: Rapid Test Deck
 theme: paper
@@ -38,6 +38,13 @@ test("walks first-time users through the editor", async ({ page }) => {
   await expect(page.getByTestId("guided-tour")).toBeVisible();
   const tour = page.getByTestId("guided-tour");
   await expect(
+    tour.getByRole("heading", { name: "Start with the whole studio" }),
+  ).toBeVisible();
+  await expect(tour).toContainText("autosaves locally");
+
+  await tour.getByRole("button", { name: "Next" }).click();
+
+  await expect(
     tour.getByRole("heading", { name: "Tune the deck shell" }),
   ).toBeVisible();
   await expect(tour).toContainText("frontmatter");
@@ -45,20 +52,30 @@ test("walks first-time users through the editor", async ({ page }) => {
   await tour.getByRole("button", { name: "Next" }).click();
 
   await expect(
-    tour.getByRole("heading", { name: "Shape markdown quickly" }),
+    tour.getByRole("heading", { name: "Write the deck as one file" }),
   ).toBeVisible();
+  await expect(tour).toContainText("Drop image files here");
 
-  await tour.getByRole("button", { name: "Next" }).click();
+  await page.keyboard.press("ArrowRight");
 
   await expect(
-    tour.getByRole("heading", { name: "Write markdown here" }),
+    tour.getByRole("heading", { name: "Use quick markdown tools" }),
   ).toBeVisible();
-  await expect(tour).toContainText("dropped image files");
 
-  await tour.getByRole("button", { name: "Next" }).click();
+  await page.keyboard.press("ArrowLeft");
 
   await expect(
-    tour.getByRole("heading", { name: "Scroll the deck as it takes shape" }),
+    tour.getByRole("heading", { name: "Write the deck as one file" }),
+  ).toBeVisible();
+
+  await tour
+    .getByRole("button", {
+      name: "Go to step 5: Branch the deck in four directions",
+    })
+    .click();
+
+  await expect(
+    tour.getByRole("heading", { name: "Branch the deck in four directions" }),
   ).toBeVisible();
 
   await tour.getByRole("button", { name: "Skip" }).click();

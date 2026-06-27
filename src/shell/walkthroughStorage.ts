@@ -1,5 +1,5 @@
 const walkthroughSeenKey = "markdown-slides.walkthroughSeen";
-const walkthroughVersion = "deck-grid-controls-v1";
+const walkthroughVersion = "joyride-getting-started-v1";
 
 export function hasSeenWalkthrough(): boolean {
   try {
