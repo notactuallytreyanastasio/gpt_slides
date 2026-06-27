@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { getSlideIndexAtMarkdownOffset } from "./markdownSourceMap";
 import { parseMarkdownDeck, parseMarkdownDeckOrThrow } from "./parseMarkdownDeck";
 
 describe("parseMarkdownDeck", () => {
@@ -115,6 +116,39 @@ const deck = parseMarkdownDeck(source);
       rowIndex: 1,
       title: "One Below",
     });
+  });
+
+  it("preserves markdown source ranges for each slide definition", () => {
+    const source = `---
+title: Source Map
+---
+
+# First
+
+---
+
+## Second
+
+--
+
+### Third
+`;
+    const deck = parseMarkdownDeckOrThrow(source);
+
+    expect(deck.slides.map((slide) => slide.sourceRange.contentStart)).toEqual([
+      source.indexOf("# First"),
+      source.indexOf("## Second"),
+      source.indexOf("### Third"),
+    ]);
+    expect(deck.slides.map((slide) => slide.sourceRange.lineStart)).toEqual([
+      5, 9, 13,
+    ]);
+    expect(
+      getSlideIndexAtMarkdownOffset(deck.slides, source.indexOf("Second")),
+    ).toBe(1);
+    expect(
+      getSlideIndexAtMarkdownOffset(deck.slides, source.indexOf("Third")),
+    ).toBe(2);
   });
 
   it("returns typed parse issues for invalid metadata", () => {

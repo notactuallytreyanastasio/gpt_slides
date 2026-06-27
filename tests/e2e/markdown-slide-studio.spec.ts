@@ -125,6 +125,57 @@ test("updates the canvas from markdown and persists locally", async ({
   ).toBeVisible();
 });
 
+test("syncs markdown cursor, source cells, and rendered slides", async ({
+  page,
+}) => {
+  const source = page.getByTestId("markdown-source");
+
+  await source.fill(customDeck);
+
+  await expect(page.getByTestId("source-cell-strip")).toBeVisible();
+  await expect(page.getByTestId("source-cell-1")).toContainText(
+    "Second Moment",
+  );
+
+  const secondSlideOffset = customDeck.indexOf("## Second Moment");
+  await source.evaluate((element, offset) => {
+    const textarea = element as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.selectionStart = offset;
+    textarea.selectionEnd = offset;
+    textarea.dispatchEvent(new Event("select", { bubbles: true }));
+  }, secondSlideOffset);
+
+  await expect(page.getByTestId("source-cell-1")).toHaveClass(/active/);
+  await expect(page.locator('[data-flow-slide="1"]')).toHaveClass(/active/);
+
+  const activeSlideIsVisible = await page
+    .locator('[data-flow-slide="1"]')
+    .evaluate((slideElement) => {
+      const stage = slideElement.closest(".canvas-stage");
+
+      if (!stage) {
+        return false;
+      }
+
+      const slideRect = slideElement.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+
+      return slideRect.top >= stageRect.top && slideRect.top <= stageRect.bottom;
+    });
+  expect(activeSlideIsVisible).toBe(true);
+
+  await page.getByTestId("source-cell-0").click();
+
+  await expect(page.getByTestId("source-cell-0")).toHaveClass(/active/);
+  await expect(page.locator('[data-flow-slide="0"]')).toHaveClass(/active/);
+  await expect
+    .poll(() =>
+      source.evaluate((element) => (element as HTMLTextAreaElement).selectionStart),
+    )
+    .toBe(customDeck.indexOf("# First Moment"));
+});
+
 test("edits deck metadata and formats markdown through toolbar controls", async ({
   page,
 }) => {

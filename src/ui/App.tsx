@@ -24,13 +24,16 @@ import {
   Share2,
 } from "lucide-react";
 import type { ChangeEvent, DragEvent, KeyboardEvent, MouseEvent } from "react";
+import type { SyntheticEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   type AspectRatio,
   type DeckTheme,
   type DeckTransition,
+  type Slide,
   type SlideInsertDirection,
+  getSlideIndexAtMarkdownOffset,
   insertMarkdownSlideSource,
   parseMarkdownDeck,
   updateMarkdownDeckMetadataSource,
@@ -100,6 +103,7 @@ export function App() {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "copied">("idle");
+  const [sourceCursorPosition, setSourceCursorPosition] = useState(0);
   const parseResult = useMemo(() => parseMarkdownDeck(markdown), [markdown]);
   const deck = parseResult.ok ? parseResult.deck : undefined;
   const activeSlide = deck?.slides[selectedSlideIndex] ?? deck?.slides[0];
@@ -118,6 +122,25 @@ export function App() {
       setSelectedSlideIndex(deck.slides.length - 1);
     }
   }, [deck, selectedSlideIndex]);
+
+  useEffect(() => {
+    if (!deck) {
+      return;
+    }
+
+    const nextSlideIndex = getSlideIndexAtMarkdownOffset(
+      deck.slides,
+      sourceCursorPosition,
+    );
+
+    if (nextSlideIndex === undefined) {
+      return;
+    }
+
+    setSelectedSlideIndex((currentSlideIndex) =>
+      currentSlideIndex === nextSlideIndex ? currentSlideIndex : nextSlideIndex,
+    );
+  }, [deck, sourceCursorPosition]);
 
   useEffect(() => {
     if (isPresenting) {
@@ -231,14 +254,33 @@ export function App() {
     };
   }, [isFileMenuOpen]);
 
+  function selectSlide(
+    slideIndex: number,
+    options: { readonly focusSource?: boolean; readonly syncSource?: boolean } = {},
+  ): void {
+    if (!deck) {
+      return;
+    }
+
+    const clampedSlideIndex = Math.min(
+      Math.max(slideIndex, 0),
+      deck.slides.length - 1,
+    );
+    setSelectedSlideIndex(clampedSlideIndex);
+
+    if (options.syncSource ?? true) {
+      window.requestAnimationFrame(() => {
+        snapSourceToSlide(deck.slides[clampedSlideIndex], options.focusSource);
+      });
+    }
+  }
+
   function moveSlide(delta: number): void {
     if (!deck) {
       return;
     }
 
-    setSelectedSlideIndex((current) =>
-      Math.min(Math.max(current + delta, 0), deck.slides.length - 1),
-    );
+    selectSlide(selectedSlideIndex + delta);
   }
 
   function moveSlideVertically(delta: number): void {
@@ -251,7 +293,7 @@ export function App() {
     ];
 
     if (target) {
-      setSelectedSlideIndex(target.index);
+      selectSlide(target.index);
     }
   }
 
@@ -267,7 +309,37 @@ export function App() {
     }
 
     const targetRowIndex = Math.min(activeSlide.rowIndex, targetColumn.length - 1);
-    setSelectedSlideIndex(targetColumn[targetRowIndex].index);
+    selectSlide(targetColumn[targetRowIndex].index);
+  }
+
+  function snapSourceToSlide(
+    slide: Slide | undefined,
+    focusSource = false,
+  ): void {
+    const textarea = sourceRef.current;
+
+    if (!textarea || !slide) {
+      return;
+    }
+
+    if (focusSource) {
+      textarea.focus();
+    }
+
+    textarea.setSelectionRange(
+      slide.sourceRange.contentStart,
+      slide.sourceRange.contentStart,
+    );
+    setSourceCursorPosition(slide.sourceRange.contentStart);
+
+    const lineHeight =
+      Number.parseFloat(window.getComputedStyle(textarea).lineHeight) || 20;
+    const nextScrollTop = Math.max(
+      0,
+      (slide.sourceRange.lineStart - 1) * lineHeight - textarea.clientHeight * 0.18,
+    );
+
+    textarea.scrollTo({ behavior: "smooth", top: nextScrollTop });
   }
 
   function updateDeckMetadata(
@@ -305,6 +377,17 @@ export function App() {
         edit.selectionEnd,
       );
     });
+  }
+
+  function syncSourceCursor(
+    event: SyntheticEvent<HTMLTextAreaElement>,
+  ): void {
+    setSourceCursorPosition(event.currentTarget.selectionStart);
+  }
+
+  function updateMarkdownSource(event: ChangeEvent<HTMLTextAreaElement>): void {
+    setMarkdown(event.target.value);
+    setSourceCursorPosition(event.target.selectionStart);
   }
 
   function handleMarkdownShortcut(
@@ -364,6 +447,7 @@ export function App() {
 
     setMarkdown(importedMarkdown);
     setSelectedSlideIndex(0);
+    setSourceCursorPosition(0);
   }
 
   function handleFileImport(event: ChangeEvent<HTMLInputElement>): void {
@@ -397,13 +481,23 @@ export function App() {
 
     setMarkdown(result.markdown);
     setSelectedSlideIndex(result.insertedSlideIndex);
-    window.requestAnimationFrame(() => sourceRef.current?.focus());
+    const nextDeck = parseMarkdownDeck(result.markdown);
+
+    window.requestAnimationFrame(() => {
+      if (nextDeck.ok) {
+        snapSourceToSlide(nextDeck.deck.slides[result.insertedSlideIndex], true);
+        return;
+      }
+
+      sourceRef.current?.focus();
+    });
   }
 
   function resetDeck(): void {
     clearDeckDraft();
     setMarkdown(sampleDeckMarkdown);
     setSelectedSlideIndex(0);
+    setSourceCursorPosition(0);
   }
 
   async function insertDroppedImages(files: readonly File[]): Promise<void> {
@@ -709,7 +803,10 @@ export function App() {
         >
           <div className="panel-heading">
             <h2 id="source-title">Source</h2>
-            <span>{markdown.length.toLocaleString()} chars</span>
+            <span>
+              {markdown.length.toLocaleString()} chars
+              {activeSlide ? ` · slide ${activeSlide.positionLabel}` : ""}
+            </span>
           </div>
           <div
             className="markdown-toolbar"
@@ -844,17 +941,57 @@ export function App() {
               </div>
             </details>
           </div>
+          {deck ? (
+            <div
+              className="source-cell-strip"
+              aria-label="Markdown slide definitions"
+              data-testid="source-cell-strip"
+            >
+              {deck.slides.map((slide) => (
+                <button
+                  className={
+                    slide.index === selectedSlideIndex
+                      ? "source-cell active"
+                      : "source-cell"
+                  }
+                  data-testid={`source-cell-${slide.index}`}
+                  key={slide.id}
+                  type="button"
+                  aria-label={`Edit slide ${slide.positionLabel}: ${slide.title}`}
+                  onClick={() =>
+                    selectSlide(slide.index, {
+                      focusSource: true,
+                      syncSource: true,
+                    })
+                  }
+                >
+                  <span className="source-cell-meta">
+                    <strong>{slide.positionLabel}</strong>
+                    <em>
+                      Lines {slide.sourceRange.lineStart}-{slide.sourceRange.lineEnd}
+                    </em>
+                  </span>
+                  <span className="source-cell-title">{slide.title}</span>
+                  <code>{getSlideSourcePreview(markdown, slide)}</code>
+                </button>
+              ))}
+            </div>
+          ) : null}
           <textarea
             aria-label="Markdown source"
             data-testid="markdown-source"
             ref={sourceRef}
             spellCheck={false}
             value={markdown}
-            onChange={(event) => setMarkdown(event.target.value)}
+            onChange={updateMarkdownSource}
             onDragLeave={() => setIsDraggingImage(false)}
             onDragOver={handleSourceDragOver}
             onDrop={handleSourceDrop}
+            onClick={syncSourceCursor}
             onKeyDown={handleMarkdownShortcut}
+            onKeyUp={syncSourceCursor}
+            onMouseUp={syncSourceCursor}
+            onSelect={syncSourceCursor}
           />
         </section>
 
@@ -980,11 +1117,11 @@ export function App() {
                     }
                     data-flow-slide={slide.index}
                     key={slide.id}
-                    onClick={() => setSelectedSlideIndex(slide.index)}
+                    onClick={() => selectSlide(slide.index)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        setSelectedSlideIndex(slide.index);
+                        selectSlide(slide.index);
                       }
                     }}
                     role="button"
@@ -1054,7 +1191,7 @@ export function App() {
                       type="button"
                       key={slide.id}
                       aria-label={`Select ${slide.title}`}
-                      onClick={() => setSelectedSlideIndex(slide.index)}
+                      onClick={() => selectSlide(slide.index)}
                     >
                       <SlideRenderer
                         aspectRatio={deck.metadata.aspectRatio}
@@ -1131,6 +1268,18 @@ function hasImageFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.items).some(
     (item) => item.kind === "file" && item.type.startsWith("image/"),
   );
+}
+
+function getSlideSourcePreview(markdown: string, slide: Slide): string {
+  const preview = markdown
+    .slice(slide.sourceRange.contentStart, slide.sourceRange.contentEnd)
+    .trim()
+    .split("\n")
+    .slice(0, 4)
+    .join("\n")
+    .trim();
+
+  return preview.length > 0 ? preview : "(blank slide)";
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

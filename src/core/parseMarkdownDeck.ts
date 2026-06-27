@@ -17,6 +17,8 @@ import {
 } from "./deck";
 
 type FrontmatterExtraction = {
+  readonly bodyStartLine: number;
+  readonly bodyStartOffset: number;
   readonly metadata: DeckMetadata;
   readonly body: string;
 };
@@ -31,6 +33,14 @@ type SlideMarkdownChunk = {
   readonly columnLength: number;
   readonly markdown: string;
   readonly rowIndex: number;
+  readonly sourceRange: {
+    readonly contentEnd: number;
+    readonly contentStart: number;
+    readonly end: number;
+    readonly lineEnd: number;
+    readonly lineStart: number;
+    readonly start: number;
+  };
 };
 
 const slideDirectivePattern = /^\s*<!--\s*\n?([\s\S]*?)\n?\s*-->\s*/;
@@ -39,8 +49,9 @@ const notesBlockPattern = /(^|\n):::\s*notes\s*\n([\s\S]*?)\n:::\s*(?=\n|$)/g;
 export function parseMarkdownDeck(markdown: string): DeckParseResult {
   try {
     const normalized = normalizeMarkdown(markdown);
-    const { metadata, body } = extractFrontmatter(normalized);
-    const chunks = splitSlideChunks(body);
+    const { metadata, body, bodyStartLine, bodyStartOffset } =
+      extractFrontmatter(normalized);
+    const chunks = splitSlideChunks(body, bodyStartOffset, bodyStartLine);
     const slides = chunks.map((chunk, index) => parseSlide(chunk, index));
     const columns = chunks.reduce<Slide[][]>((deckColumns, chunk, index) => {
       deckColumns[chunk.columnIndex] ??= [];
@@ -90,6 +101,8 @@ function extractFrontmatter(markdown: string): FrontmatterExtraction {
 
   if (lines[0]?.trim() !== "---") {
     return {
+      bodyStartLine: 1,
+      bodyStartOffset: 0,
       metadata: deckMetadataSchema.parse({}),
       body: markdown,
     };
@@ -104,57 +117,155 @@ function extractFrontmatter(markdown: string): FrontmatterExtraction {
   }
 
   const rawMetadata = parseYamlMap(lines.slice(1, closingIndex).join("\n"));
+  const bodyStartOffset = getLineStartOffset(lines, closingIndex + 1);
 
   return {
+    bodyStartLine: closingIndex + 2,
+    bodyStartOffset,
     metadata: deckMetadataSchema.parse(rawMetadata),
     body: lines.slice(closingIndex + 1).join("\n"),
   };
 }
 
-function splitSlideChunks(markdown: string): readonly SlideMarkdownChunk[] {
+function splitSlideChunks(
+  markdown: string,
+  bodyStartOffset = 0,
+  bodyStartLine = 1,
+): readonly SlideMarkdownChunk[] {
   const columns: string[][] = [[]];
+  const sourceColumns: SlideMarkdownChunk["sourceRange"][][] = [[]];
   const current: string[] = [];
+  const lines = markdown.split("\n");
+  let currentStartLine = bodyStartLine;
+  let currentStartOffset = bodyStartOffset;
+  let lineNumber = bodyStartLine;
+  let lineStartOffset = bodyStartOffset;
 
-  function pushCurrentSlide(): void {
-    const slide = current.join("\n").trim();
+  function pushCurrentSlide(rangeEndOffset: number, rangeEndLine: number): void {
+    const rawSlide = current.join("\n");
+    const slide = rawSlide.trim();
 
     if (slide.length > 0) {
       columns[columns.length - 1].push(slide);
+      sourceColumns[sourceColumns.length - 1].push(
+        createSourceRange(
+          rawSlide,
+          currentStartOffset,
+          rangeEndOffset,
+          currentStartLine,
+          rangeEndLine,
+        ),
+      );
     }
 
     current.length = 0;
   }
 
-  for (const line of markdown.split("\n")) {
+  for (const [lineIndex, line] of lines.entries()) {
     const trimmed = line.trim();
+    const lineEndOffset = lineStartOffset + line.length;
+    const nextLineStartOffset =
+      lineEndOffset + (lineIndex < lines.length - 1 ? 1 : 0);
 
     if (trimmed === "---" || trimmed === "--") {
-      pushCurrentSlide();
+      pushCurrentSlide(lineStartOffset, Math.max(currentStartLine, lineNumber - 1));
 
       if (trimmed === "---") {
         columns.push([]);
+        sourceColumns.push([]);
       }
 
+      currentStartLine = lineNumber + 1;
+      currentStartOffset = nextLineStartOffset;
+      lineNumber += 1;
+      lineStartOffset = nextLineStartOffset;
       continue;
     }
 
     current.push(line);
+    lineNumber += 1;
+    lineStartOffset = nextLineStartOffset;
   }
 
-  pushCurrentSlide();
+  pushCurrentSlide(lineStartOffset, Math.max(currentStartLine, lineNumber - 1));
 
-  const populatedColumns = columns.filter((column) => column.length > 0);
+  const populatedColumns = columns
+    .map((column, columnIndex) => ({
+      slides: column,
+      sourceRanges: sourceColumns[columnIndex] ?? [],
+    }))
+    .filter((column) => column.slides.length > 0);
   const usableColumns =
-    populatedColumns.length > 0 ? populatedColumns : [[""]];
+    populatedColumns.length > 0
+      ? populatedColumns
+      : [
+          {
+            slides: [""],
+            sourceRanges: [
+              {
+                contentEnd: bodyStartOffset,
+                contentStart: bodyStartOffset,
+                end: bodyStartOffset,
+                lineEnd: bodyStartLine,
+                lineStart: bodyStartLine,
+                start: bodyStartOffset,
+              },
+            ],
+          },
+        ];
 
   return usableColumns.flatMap((column, columnIndex) =>
-    column.map((slideMarkdown, rowIndex) => ({
+    column.slides.map((slideMarkdown, rowIndex) => ({
       columnIndex,
-      columnLength: column.length,
+      columnLength: column.slides.length,
       markdown: slideMarkdown,
       rowIndex,
+      sourceRange: column.sourceRanges[rowIndex],
     })),
   );
+}
+
+function getLineStartOffset(lines: readonly string[], lineIndex: number): number {
+  return lines
+    .slice(0, lineIndex)
+    .reduce((offset, line) => offset + line.length + 1, 0);
+}
+
+function createSourceRange(
+  rawSlide: string,
+  rangeStartOffset: number,
+  rangeEndOffset: number,
+  rangeStartLine: number,
+  rangeEndLine: number,
+): SlideMarkdownChunk["sourceRange"] {
+  const leadingWhitespace = rawSlide.match(/^\s*/)?.[0] ?? "";
+  const trailingWhitespace = rawSlide.match(/\s*$/)?.[0] ?? "";
+  const contentStart = rangeStartOffset + leadingWhitespace.length;
+  const contentEnd = Math.max(
+    contentStart,
+    rangeEndOffset - trailingWhitespace.length,
+  );
+  const content = rawSlide.slice(
+    leadingWhitespace.length,
+    rawSlide.length - trailingWhitespace.length,
+  );
+  const contentLineStart = rangeStartLine + countLineBreaks(leadingWhitespace);
+
+  return {
+    contentEnd,
+    contentStart,
+    end: rangeEndOffset,
+    lineEnd:
+      content.length > 0
+        ? contentLineStart + countLineBreaks(content)
+        : Math.max(contentLineStart, rangeEndLine),
+    lineStart: contentLineStart,
+    start: rangeStartOffset,
+  };
+}
+
+function countLineBreaks(value: string): number {
+  return value.match(/\n/g)?.length ?? 0;
 }
 
 function parseSlide(chunk: SlideMarkdownChunk, index: number): Slide {
@@ -182,6 +293,7 @@ function parseSlide(chunk: SlideMarkdownChunk, index: number): Slide {
     notes,
     positionLabel,
     rowIndex: chunk.rowIndex,
+    sourceRange: chunk.sourceRange,
     style: {
       background: directive.background,
       accent: directive.accent,
@@ -193,17 +305,19 @@ function parseSlide(chunk: SlideMarkdownChunk, index: number): Slide {
 
 export function splitMarkdownSlides(markdown: string): readonly string[] {
   const normalized = normalizeMarkdown(markdown);
-  const { body } = extractFrontmatter(normalized);
+  const { body, bodyStartLine, bodyStartOffset } = extractFrontmatter(normalized);
 
-  return splitSlideChunks(body).map((chunk) => chunk.markdown);
+  return splitSlideChunks(body, bodyStartOffset, bodyStartLine).map(
+    (chunk) => chunk.markdown,
+  );
 }
 
 export function getMarkdownSlideGrid(
   markdown: string,
 ): readonly (readonly string[])[] {
   const normalized = normalizeMarkdown(markdown);
-  const { body } = extractFrontmatter(normalized);
-  const chunks = splitSlideChunks(body);
+  const { body, bodyStartLine, bodyStartOffset } = extractFrontmatter(normalized);
+  const chunks = splitSlideChunks(body, bodyStartOffset, bodyStartLine);
   const columns = chunks.reduce<string[][]>((deckColumns, chunk) => {
     deckColumns[chunk.columnIndex] ??= [];
     deckColumns[chunk.columnIndex][chunk.rowIndex] = chunk.markdown;

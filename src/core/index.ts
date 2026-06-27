@@ -6,6 +6,7 @@ export type {
   DeckParseResult,
   DeckTheme,
   DeckTransition,
+  MarkdownSourceRange,
   RequestedSlideLayout,
   Slide,
   SlideAlignment,
@@ -21,6 +22,7 @@ export {
   deckSchema,
   deckThemeSchema,
   deckTransitionSchema,
+  markdownSourceRangeSchema,
   requestedSlideLayoutSchema,
   slideAlignmentSchema,
   slideDensitySchema,
@@ -35,6 +37,7 @@ export type {
   InsertMarkdownSlideResult,
   SlideInsertDirection,
 } from "./insertMarkdownSlide";
+export { getSlideIndexAtMarkdownOffset } from "./markdownSourceMap";
 export { parseMarkdownDeck, parseMarkdownDeckOrThrow } from "./parseMarkdownDeck";
 export { updateMarkdownDeckMetadataSource } from "./updateMarkdownDeckMetadata";
 export type { DeckMetadataPatch } from "./updateMarkdownDeckMetadata";

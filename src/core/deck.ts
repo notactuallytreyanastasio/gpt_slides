@@ -78,6 +78,16 @@ export const slideStatsSchema = z.object({
 });
 export type SlideStats = z.infer<typeof slideStatsSchema>;
 
+export const markdownSourceRangeSchema = z.object({
+  contentEnd: z.number().int().nonnegative(),
+  contentStart: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+  lineEnd: z.number().int().positive(),
+  lineStart: z.number().int().positive(),
+  start: z.number().int().nonnegative(),
+});
+export type MarkdownSourceRange = z.infer<typeof markdownSourceRangeSchema>;
+
 export const slideSchema = z.object({
   columnIndex: z.number().int().nonnegative(),
   id: z.string(),
@@ -89,6 +99,7 @@ export const slideSchema = z.object({
   notes: z.string(),
   positionLabel: z.string(),
   rowIndex: z.number().int().nonnegative(),
+  sourceRange: markdownSourceRangeSchema,
   style: slideStyleSchema,
   stats: slideStatsSchema,
 });

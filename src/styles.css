@@ -468,6 +468,86 @@ select {
   text-overflow: ellipsis;
 }
 
+.source-cell-strip {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 8px;
+  max-height: 172px;
+  overflow: auto;
+  padding: 8px;
+  border-bottom: 1px solid #1d2a34;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+    #101820;
+}
+
+.source-cell {
+  width: 100%;
+  min-height: 88px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(184, 198, 209, 0.18);
+  border-radius: 8px;
+  color: #dbe6ee;
+  background: #131f2a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.source-cell:hover {
+  border-color: rgba(255, 183, 3, 0.58);
+  background: #162635;
+}
+
+.source-cell.active {
+  border-color: #ffb703;
+  background:
+    linear-gradient(90deg, rgba(255, 183, 3, 0.16), transparent 52%),
+    #172636;
+  box-shadow: inset 3px 0 0 #ffb703;
+}
+
+.source-cell-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8da0b0;
+  font-size: 0.72rem;
+}
+
+.source-cell-meta strong {
+  color: #46d9cf;
+  font-size: 0.78rem;
+}
+
+.source-cell-meta em {
+  font-style: normal;
+}
+
+.source-cell-title {
+  overflow: hidden;
+  color: #f7fafc;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-cell code {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #b8c6d1;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
 textarea {
   flex: 1;
   width: 100%;
